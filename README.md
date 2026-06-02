@@ -8,14 +8,24 @@
 ![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-<!-- A screenshot sells a desktop app. Save one to docs/screenshot.png and uncomment: -->
-<!-- ![FieldCheck](docs/screenshot.png) -->
+![FieldCheck workspace](docs/Screenshots/fieldcheck.png)
 
 ## Download
 
 Download the latest **`FieldCheck.exe`** from the [Releases](../../releases) page and double-click
 it — no installer, and no .NET runtime required. It is a single self-contained file; all your data
 is stored locally as JSON in your user profile.
+
+---
+
+## Screenshots
+
+| Add an item | Light theme |
+| --- | --- |
+| ![Add-item dialog](docs/Screenshots/Add_Items.png) | ![FieldCheck in light mode](docs/Screenshots/Light_Mode.png) |
+
+Section-grouped items with tag pills; an add/edit dialog with section reuse-chips and
+semicolon-separated tags; and light / dark / system themes.
 
 ---
 
