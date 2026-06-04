@@ -23,4 +23,10 @@ public sealed class AppSettings
     public double? WindowTop { get; set; }
 
     public bool WindowMaximized { get; set; }
+
+    /// <summary>Sidebar width in pixels (clamped to a sane range by the UI).</summary>
+    public double SidebarWidth { get; set; } = 300;
+
+    /// <summary>Whether the left sidebar is collapsed.</summary>
+    public bool SidebarCollapsed { get; set; }
 }

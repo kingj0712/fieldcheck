@@ -1,0 +1,87 @@
+<Window x:Class="FieldCheck.App.Views.EntryDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FieldCheck"
+        SizeToContent="Height" Width="470"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource Surface.Window}"
+        Foreground="{DynamicResource Text.Primary}"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <Style x:Key="ChipButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource Surface.Card}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text.Secondary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border.Default}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="11,4" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="11">
+                            <ContentPresenter Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource State.Hover}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Text.Primary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Padding="24">
+        <StackPanel>
+            <TextBlock x:Name="HeadingText" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource Text.Primary}" />
+
+            <TextBlock x:Name="Field1Label" Style="{StaticResource Caption}" Margin="0,16,0,4" />
+            <TextBox x:Name="Field1Box" TextChanged="Field1Box_TextChanged" />
+
+            <StackPanel x:Name="Field2Panel">
+                <TextBlock x:Name="Field2Label" Style="{StaticResource Caption}" Margin="0,14,0,4" />
+                <TextBox x:Name="Field2Box" />
+                <ItemsControl x:Name="ChipsList" Margin="0,8,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource ChipButton}" Content="{Binding}"
+                                    Margin="0,0,6,6" Click="Chip_Click" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <StackPanel x:Name="Field3Panel">
+                <TextBlock x:Name="Field3Label" Style="{StaticResource Caption}" Margin="0,14,0,4" />
+                <TextBox x:Name="Field3Box" />
+            </StackPanel>
+
+            <StackPanel x:Name="NotesPanel">
+                <TextBlock x:Name="NotesLabel" Style="{StaticResource Caption}" Margin="0,14,0,4" Text="Notes (optional)" />
+                <TextBox x:Name="NotesBox" AcceptsReturn="True" TextWrapping="Wrap"
+                         MinHeight="68" MaxHeight="170" VerticalScrollBarVisibility="Auto"
+                         VerticalContentAlignment="Top" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                <Button x:Name="CancelButton" Content="Cancel" MinWidth="90" Margin="0,0,10,0"
+                        IsCancel="True" Click="Cancel_Click" />
+                <Button x:Name="OkButton" Content="Save" MinWidth="90"
+                        Style="{StaticResource AccentButton}" IsDefault="True" Click="Ok_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>
