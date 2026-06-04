@@ -39,16 +39,17 @@ public sealed class ChecklistViewModel : BindableBase
 
         AddItemCommand = new RelayCommand(AddItem);
         AddSectionCommand = new RelayCommand(AddSection);
-        ResetCommand = new RelayCommand(Reset, () => CompletedCount > 0);
+        ResetCommand = new RelayCommand(Reset, () => Model.Items.Any(i => i.Status != ItemStatus.Open));
         ExportCommand = new RelayCommand(Export, () => TotalCount > 0);
+        ExportMarkdownCommand = new RelayCommand(ExportMarkdown, () => TotalCount > 0);
         PrintCommand = new RelayCommand(Print, () => TotalCount > 0);
         DuplicateCommand = new RelayCommand(() => _host.RequestDuplicateChecklist(this));
         DeleteCommand = new RelayCommand(() => _host.RequestDeleteChecklist(this));
-        ViewCompletedCommand = new RelayCommand(() => ViewModeIndex = 1);
-        SelectViewCommand = new RelayCommand<string>(v => ViewModeIndex = v switch { "completed" => 1, "all" => 2, _ => 0 });
+        ViewCompletedCommand = new RelayCommand(() => ViewModeIndex = 2);
+        SelectViewCommand = new RelayCommand<string>(v => ViewModeIndex = TabIndexFor(v));
         UndoCompleteCommand = new RelayCommand(UndoComplete);
         DismissToastCommand = new RelayCommand(DismissToast);
-        ViewCompletedFromToastCommand = new RelayCommand(() => { ViewModeIndex = 1; DismissToast(); });
+        ViewCompletedFromToastCommand = new RelayCommand(() => { ViewModeIndex = 2; DismissToast(); });
 
         _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5) };
         _toastTimer.Tick += (_, _) => DismissToast();
@@ -67,6 +68,7 @@ public sealed class ChecklistViewModel : BindableBase
     public ICommand AddSectionCommand { get; }
     public RelayCommand ResetCommand { get; }
     public RelayCommand ExportCommand { get; }
+    public RelayCommand ExportMarkdownCommand { get; }
     public RelayCommand PrintCommand { get; }
     public ICommand DuplicateCommand { get; }
     public ICommand DeleteCommand { get; }
@@ -104,7 +106,9 @@ public sealed class ChecklistViewModel : BindableBase
     public string UpdatedAtText => $"Updated {Model.UpdatedAt:MMM d, h:mm tt}";
 
     public string OpenTabLabel => $"Open ({OpenCount})";
-    public string CompletedTabLabel => $"Completed ({CompletedCount})";
+    public string IssuesTabLabel => $"Issues ({IssueCount})";
+    public string CompletedTabLabel => $"Complete ({CompletedCount})";
+    public string NaTabLabel => $"N/A ({NaCount})";
     public string AllTabLabel => $"All ({TotalCount})";
 
     // ---------------------------------------------------------------- "moved to completed" toast
@@ -159,40 +163,61 @@ public sealed class ChecklistViewModel : BindableBase
 
     // ---------------------------------------------------------------- view mode & search
 
+    // Tab order: 0 Open · 1 Issues · 2 Complete · 3 N/A · 4 All.
     private int _viewModeIndex;
     public int ViewModeIndex
     {
         get => _viewModeIndex;
         set
         {
-            if (!SetProperty(ref _viewModeIndex, Math.Clamp(value, 0, 2)))
+            if (!SetProperty(ref _viewModeIndex, Math.Clamp(value, 0, 4)))
                 return;
-            _services.State.State.Settings.LastSelectedTab = _viewModeIndex switch
-            {
-                1 => "completed",
-                2 => "all",
-                _ => "open"
-            };
-            OnPropertyChanged(nameof(IsOpenView));
-            OnPropertyChanged(nameof(IsCompletedView));
-            OnPropertyChanged(nameof(IsAllView));
+            _services.State.State.Settings.LastSelectedTab = TabKeyFor(_viewModeIndex);
+            RaiseViewFlags();
             Recompute();
             _services.Save();
         }
     }
 
     public bool IsOpenView => _viewModeIndex == 0;
-    public bool IsCompletedView => _viewModeIndex == 1;
-    public bool IsAllView => _viewModeIndex == 2;
+    public bool IsIssuesView => _viewModeIndex == 1;
+    public bool IsCompletedView => _viewModeIndex == 2;
+    public bool IsNaView => _viewModeIndex == 3;
+    public bool IsAllView => _viewModeIndex == 4;
+
+    private static int TabIndexFor(string? key) => key switch
+    {
+        "issues" => 1,
+        "complete" or "completed" => 2,
+        "na" => 3,
+        "all" => 4,
+        _ => 0
+    };
+
+    private static string TabKeyFor(int index) => index switch
+    {
+        1 => "issues",
+        2 => "completed",
+        3 => "na",
+        4 => "all",
+        _ => "open"
+    };
+
+    private void RaiseViewFlags()
+    {
+        OnPropertyChanged(nameof(IsOpenView));
+        OnPropertyChanged(nameof(IsIssuesView));
+        OnPropertyChanged(nameof(IsCompletedView));
+        OnPropertyChanged(nameof(IsNaView));
+        OnPropertyChanged(nameof(IsAllView));
+    }
 
     /// <summary>Initializes the tab from saved settings without re-saving.</summary>
     public void InitViewMode(string? tab)
     {
-        _viewModeIndex = tab switch { "completed" => 1, "all" => 2, _ => 0 };
+        _viewModeIndex = TabIndexFor(tab);
         OnPropertyChanged(nameof(ViewModeIndex));
-        OnPropertyChanged(nameof(IsOpenView));
-        OnPropertyChanged(nameof(IsCompletedView));
-        OnPropertyChanged(nameof(IsAllView));
+        RaiseViewFlags();
         Recompute();
     }
 
@@ -216,8 +241,10 @@ public sealed class ChecklistViewModel : BindableBase
     // ---------------------------------------------------------------- progress
 
     public int TotalCount => Model.Items.Count;
-    public int CompletedCount => Model.Items.Count(i => i.Completed);
-    public int OpenCount => TotalCount - CompletedCount;
+    public int CompletedCount => ChecklistService.CountByStatus(Model, ItemStatus.Complete);
+    public int OpenCount => ChecklistService.CountByStatus(Model, ItemStatus.Open);
+    public int IssueCount => ChecklistService.CountByStatus(Model, ItemStatus.Issue);
+    public int NaCount => ChecklistService.CountByStatus(Model, ItemStatus.NotApplicable);
     public int ProgressMaximum => TotalCount == 0 ? 1 : TotalCount;
     public string ProgressDetail => $"{CompletedCount} of {TotalCount} complete";
 
@@ -227,7 +254,9 @@ public sealed class ChecklistViewModel : BindableBase
     public bool ShowEmptyChecklist => TotalCount == 0;
     public bool ShowNoMatches => TotalCount > 0 && IsSearching && Sections.Count == 0;
     public bool ShowNoOpen => TotalCount > 0 && !IsSearching && IsOpenView && Sections.Count == 0;
+    public bool ShowNoIssues => TotalCount > 0 && !IsSearching && IsIssuesView && Sections.Count == 0;
     public bool ShowNoCompleted => TotalCount > 0 && !IsSearching && IsCompletedView && Sections.Count == 0;
+    public bool ShowNoNa => TotalCount > 0 && !IsSearching && IsNaView && Sections.Count == 0;
 
     public bool ShowFilterSummary => IsSearching;
     public string FilterSummary { get; private set; } = string.Empty;
@@ -285,8 +314,10 @@ public sealed class ChecklistViewModel : BindableBase
     {
         var copy = item.Model.Clone();
         copy.Id = _services.Ids.NewId("item");
+        copy.Status = ItemStatus.Open;
         copy.Completed = false;
         copy.CompletedAt = null;
+        copy.IssueNote = string.Empty;
         copy.CreatedAt = _services.Clock.Now;
         copy.UpdatedAt = _services.Clock.Now;
 
@@ -316,13 +347,21 @@ public sealed class ChecklistViewModel : BindableBase
         _services.Save(immediate: true);
     }
 
-    public void HandleItemCompletionChanged(ItemViewModel item)
+    public void HandleItemStatusChanged(ItemViewModel item, bool becameComplete)
     {
         Model.UpdatedAt = _services.Clock.Now;
         Recompute();
         _services.Save(immediate: true);
-        if (item.IsCompleted)
+        if (becameComplete)
             ShowMovedToast(item);
+    }
+
+    /// <summary>The issue note autosaves without re-bucketing (status, and therefore the tab, is unchanged).</summary>
+    public void HandleItemIssueNoteChanged()
+    {
+        Model.UpdatedAt = _services.Clock.Now;
+        OnPropertyChanged(nameof(UpdatedAtText));
+        _services.Save();
     }
 
     public void HandleItemEdited(ItemViewModel item)
@@ -333,17 +372,27 @@ public sealed class ChecklistViewModel : BindableBase
     }
 
     /// <summary>Reveals an item navigated to from global search: clears any filter, switches to the
-    /// matching tab, and briefly highlights/scrolls to it (after the view has laid out).</summary>
+    /// tab matching the item's status, and briefly highlights/scrolls to it (after layout).</summary>
     public void RevealItem(string itemId, bool completed)
     {
         SearchText = string.Empty;
-        ViewModeIndex = completed ? 1 : 0;
+        ViewModeIndex = _byId.TryGetValue(itemId, out var found)
+            ? TabForStatus(found.Model.Status)
+            : (completed ? 2 : 0);
         Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
         {
             if (_byId.TryGetValue(itemId, out var vm))
                 vm.Highlight();
         }), DispatcherPriority.Background);
     }
+
+    private static int TabForStatus(ItemStatus status) => status switch
+    {
+        ItemStatus.Issue => 1,
+        ItemStatus.Complete => 2,
+        ItemStatus.NotApplicable => 3,
+        _ => 0
+    };
 
     /// <summary>Reveals a section navigated to from global search: clears any filter and shows the Open view.</summary>
     public void RevealSection()
@@ -367,7 +416,7 @@ public sealed class ChecklistViewModel : BindableBase
 
     private void Export()
     {
-        var path = _services.Dialogs.SaveFile("Export checklist to CSV", SuggestFileName(Model.Name) + ".csv");
+        var path = _services.Dialogs.SaveFile("Export checklist as CSV", SuggestFileName(Model.Name) + ".csv");
         if (path is null)
             return;
         try
@@ -377,6 +426,22 @@ public sealed class ChecklistViewModel : BindableBase
         catch (Exception ex)
         {
             _services.Dialogs.ShowMessage("Export failed", $"FieldCheck could not export the CSV:\n\n{ex.Message}");
+        }
+    }
+
+    private void ExportMarkdown()
+    {
+        var path = _services.Dialogs.SaveFile("Export checklist as Markdown", SuggestFileName(Model.Name) + ".md",
+            "Markdown file (*.md)|*.md|All files (*.*)|*.*", defaultExt: "md");
+        if (path is null)
+            return;
+        try
+        {
+            File.WriteAllText(path, MarkdownReportService.ChecklistReport(Project.Name, Model, _services.Clock.Now));
+        }
+        catch (Exception ex)
+        {
+            _services.Dialogs.ShowMessage("Export failed", $"FieldCheck could not export the report:\n\n{ex.Message}");
         }
     }
 
@@ -398,8 +463,10 @@ public sealed class ChecklistViewModel : BindableBase
     {
         IEnumerable<ChecklistItem> source = _viewModeIndex switch
         {
-            1 => ChecklistService.CompletedItems(Model),
-            2 => ChecklistService.OrderedItems(Model),
+            1 => ChecklistService.IssueItems(Model),
+            2 => ChecklistService.CompletedItems(Model),
+            3 => ChecklistService.NotApplicableItems(Model),
+            4 => ChecklistService.OrderedItems(Model),
             _ => ChecklistService.OpenItems(Model)
         };
         var inView = source.ToList();
@@ -416,12 +483,14 @@ public sealed class ChecklistViewModel : BindableBase
             Sections.Add(sectionVm);
         }
 
-        var noun = _viewModeIndex switch { 1 => "completed items", 2 => "items", _ => "open items" };
+        var noun = _viewModeIndex switch { 1 => "issues", 2 => "completed items", 3 => "N/A items", 4 => "items", _ => "open items" };
         FilterSummary = $"Showing {filtered.Count} of {inView.Count} {noun}";
 
         OnPropertyChanged(nameof(TotalCount));
         OnPropertyChanged(nameof(CompletedCount));
         OnPropertyChanged(nameof(OpenCount));
+        OnPropertyChanged(nameof(IssueCount));
+        OnPropertyChanged(nameof(NaCount));
         OnPropertyChanged(nameof(ProgressMaximum));
         OnPropertyChanged(nameof(ProgressDetail));
         OnPropertyChanged(nameof(ProgressBadge));
@@ -430,14 +499,19 @@ public sealed class ChecklistViewModel : BindableBase
         OnPropertyChanged(nameof(ShowEmptyChecklist));
         OnPropertyChanged(nameof(ShowNoMatches));
         OnPropertyChanged(nameof(ShowNoOpen));
+        OnPropertyChanged(nameof(ShowNoIssues));
         OnPropertyChanged(nameof(ShowNoCompleted));
+        OnPropertyChanged(nameof(ShowNoNa));
         OnPropertyChanged(nameof(ShowFilterSummary));
         OnPropertyChanged(nameof(FilterSummary));
         OnPropertyChanged(nameof(OpenTabLabel));
+        OnPropertyChanged(nameof(IssuesTabLabel));
         OnPropertyChanged(nameof(CompletedTabLabel));
+        OnPropertyChanged(nameof(NaTabLabel));
         OnPropertyChanged(nameof(AllTabLabel));
         ResetCommand.RaiseCanExecuteChanged();
         ExportCommand.RaiseCanExecuteChanged();
+        ExportMarkdownCommand.RaiseCanExecuteChanged();
         PrintCommand.RaiseCanExecuteChanged();
         Project.RefreshProgress();
     }
@@ -449,6 +523,7 @@ public sealed class ChecklistViewModel : BindableBase
         var term = SearchText.Trim();
         return Contains(item.Text, term)
                || Contains(item.Notes, term)
+               || Contains(item.IssueNote, term)
                || Contains(item.Section, term)
                || item.Tags.Any(t => Contains(t, term));
     }

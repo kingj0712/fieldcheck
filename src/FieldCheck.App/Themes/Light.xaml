@@ -27,4 +27,14 @@
 
     <SolidColorBrush x:Key="ProgressTrack">#E7EAEE</SolidColorBrush>
 
+    <!-- Item status badges: complete = calm green, issue = amber, N/A = muted gray, open = neutral. -->
+    <SolidColorBrush x:Key="Status.Open.Fg">#5C6470</SolidColorBrush>
+    <SolidColorBrush x:Key="Status.Open.Bg">#EDEFF2</SolidColorBrush>
+    <SolidColorBrush x:Key="Status.Complete.Fg">#2E7D52</SolidColorBrush>
+    <SolidColorBrush x:Key="Status.Complete.Bg">#E5F3EB</SolidColorBrush>
+    <SolidColorBrush x:Key="Status.Issue.Fg">#9A5B00</SolidColorBrush>
+    <SolidColorBrush x:Key="Status.Issue.Bg">#FAEED5</SolidColorBrush>
+    <SolidColorBrush x:Key="Status.Na.Fg">#7C8590</SolidColorBrush>
+    <SolidColorBrush x:Key="Status.Na.Bg">#ECEEF1</SolidColorBrush>
+
 </ResourceDictionary>

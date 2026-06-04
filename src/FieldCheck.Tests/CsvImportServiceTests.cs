@@ -169,4 +169,63 @@ public class CsvImportServiceTests
         Assert.Equal("Fan", item.Section);
         Assert.Equal(new[] { "AHU-1" }, item.Tags);
     }
+
+    [Fact]
+    public void ImportsStatusAndIssueNote()
+    {
+        var state = new AppState();
+        var csv = "checklist_name,item_text,status,issue_note\n" +
+                  "AHU,Open one,Open,\n" +
+                  "AHU,Done one,Complete,\n" +
+                  "AHU,Bad one,Issue,VFD fault\n" +
+                  "AHU,Skip one,N/A,";
+        Import(csv, state);
+
+        var items = state.Projects.Single().Checklists.Single().Items;
+        Assert.Equal(ItemStatus.Open, items[0].Status);
+        Assert.Equal(ItemStatus.Complete, items[1].Status);
+        Assert.True(items[1].Completed);
+        Assert.Equal(ItemStatus.Issue, items[2].Status);
+        Assert.Equal("VFD fault", items[2].IssueNote);
+        Assert.Equal(ItemStatus.NotApplicable, items[3].Status);
+    }
+
+    [Fact]
+    public void StatusAcceptsCommonSpellings()
+    {
+        var state = new AppState();
+        Import("item_text,status\nA,Completed\nB,NA\nC,Not Applicable", state);
+        var items = state.Projects.Single().Checklists.Single().Items;
+        Assert.Equal(ItemStatus.Complete, items[0].Status);
+        Assert.Equal(ItemStatus.NotApplicable, items[1].Status);
+        Assert.Equal(ItemStatus.NotApplicable, items[2].Status);
+    }
+
+    [Fact]
+    public void InvalidStatus_DefaultsToOpenAndIsReported()
+    {
+        var state = new AppState();
+        var result = Import("item_text,status\nVerify fan,Bogus", state);
+        var item = state.Projects.Single().Checklists.Single().Items.Single();
+        Assert.Equal(ItemStatus.Open, item.Status);
+        Assert.Contains(result.Issues, m => m.Contains("Bogus"));
+    }
+
+    [Fact]
+    public void CompletedColumn_UsedWhenNoStatusColumn()
+    {
+        var state = new AppState();
+        Import("item_text,completed\nDone,true\nOpen,false", state);
+        var items = state.Projects.Single().Checklists.Single().Items;
+        Assert.Equal(ItemStatus.Complete, items[0].Status);
+        Assert.Equal(ItemStatus.Open, items[1].Status);
+    }
+
+    [Fact]
+    public void NoStatusOrCompleted_DefaultsToOpen()
+    {
+        var state = new AppState();
+        Import("item_text\nVerify fan", state);
+        Assert.Equal(ItemStatus.Open, state.Projects.Single().Checklists.Single().Items.Single().Status);
+    }
 }

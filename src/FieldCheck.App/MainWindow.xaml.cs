@@ -118,6 +118,9 @@ public partial class MainWindow : Window
 
     private void ChecklistMore_Click(object sender, RoutedEventArgs e) => OpenMenu(sender);
 
+    // The compact status pill opens its own menu (Open/Complete/Issue/N/A) on left-click.
+    private void StatusButton_Click(object sender, RoutedEventArgs e) => OpenMenu(sender);
+
     private static void OpenMenu(object sender)
     {
         if (sender is Button { ContextMenu: { } menu } button)

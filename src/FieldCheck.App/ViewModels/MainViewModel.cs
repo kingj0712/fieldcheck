@@ -27,6 +27,7 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
         NewChecklistCommand = new RelayCommand(() => CreateChecklistInProject(null));
         ImportCsvCommand = new RelayCommand(ImportCsv);
         DownloadTemplateCommand = new RelayCommand(DownloadTemplate);
+        ExportWorkspaceCommand = new RelayCommand(ExportWorkspace, () => HasProjects);
         OpenGlobalSearchCommand = new RelayCommand(OpenGlobalSearch);
         SetLightThemeCommand = new RelayCommand(() => SetTheme(ThemeMode.Light));
         SetDarkThemeCommand = new RelayCommand(() => SetTheme(ThemeMode.Dark));
@@ -46,6 +47,7 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
     public ICommand NewChecklistCommand { get; }
     public ICommand ImportCsvCommand { get; }
     public ICommand DownloadTemplateCommand { get; }
+    public RelayCommand ExportWorkspaceCommand { get; }
     public ICommand OpenGlobalSearchCommand { get; }
     public ICommand SetLightThemeCommand { get; }
     public ICommand SetDarkThemeCommand { get; }
@@ -212,6 +214,42 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
         }
     }
 
+    /// <summary>Exports the whole workspace (raw data.json + per-checklist CSV/Markdown + a template
+    /// and README) into a timestamped folder the user chooses.</summary>
+    private void ExportWorkspace()
+    {
+        var parent = _services.Dialogs.PickFolder("Choose where to export the workspace");
+        if (parent is null)
+            return;
+
+        _services.State.Flush(); // ensure the on-disk data.json reflects the latest edits before we copy it
+
+        var folderName = WorkspaceExportService.SuggestedFolderName(_services.Clock.Now);
+        var target = Path.Combine(parent, folderName);
+        if (Directory.Exists(target) &&
+            !_services.Dialogs.Confirm("Export already exists",
+                $"“{folderName}” already exists here. Overwrite its contents?", "Overwrite", destructive: false))
+            return;
+
+        try
+        {
+            string? rawJson = null;
+            try
+            {
+                if (File.Exists(_services.State.DataFilePath))
+                    rawJson = File.ReadAllText(_services.State.DataFilePath);
+            }
+            catch { /* the service will serialize current state instead */ }
+
+            WorkspaceExportService.Export(State, rawJson, target, _services.Clock.Now);
+            _services.Dialogs.ShowMessage("Workspace exported", $"FieldCheck exported your workspace to:\n\n{target}");
+        }
+        catch (Exception ex)
+        {
+            _services.Dialogs.ShowMessage("Export failed", $"FieldCheck could not export the workspace:\n\n{ex.Message}");
+        }
+    }
+
     /// <summary>Rebuilds the sidebar view models from state (used after import) and restores a selection.</summary>
     private void RebuildProjects(string? selectChecklistId)
     {
@@ -285,7 +323,17 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
     public void RequestDuplicateChecklist(ChecklistViewModel checklist)
     {
         var project = checklist.Project;
-        var copy = ChecklistService.Duplicate(checklist.Model, project.Model.Checklists.Select(c => c.Name), _services.Clock, _services.Ids);
+
+        // Suggest a sensible new name and let the user apply a find/replace (e.g. AHU-1 -> AHU-2).
+        var input = _services.Dialogs.PromptDuplicateChecklist(checklist.Name);
+        if (input is null || string.IsNullOrWhiteSpace(input.NewName))
+            return;
+
+        var copy = ChecklistService.Duplicate(
+            checklist.Model, project.Model.Checklists.Select(c => c.Name),
+            _services.Clock, _services.Ids,
+            newName: input.NewName, find: input.Find, replace: input.Replace);
+
         var index = project.Model.Checklists.IndexOf(checklist.Model) + 1;
         project.Model.Checklists.Insert(Math.Clamp(index, 0, project.Model.Checklists.Count), copy);
         ProjectService.NormalizeChecklistOrders(project.Model.Checklists);
@@ -347,6 +395,7 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
     {
         OnPropertyChanged(nameof(HasProjects));
         OnPropertyChanged(nameof(ShowWelcome));
+        ExportWorkspaceCommand.RaiseCanExecuteChanged();
     }
 
     public void NotifyLoaded()

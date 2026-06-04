@@ -66,11 +66,13 @@ public class ChecklistServiceTests
     }
 
     [Fact]
-    public void Duplicate_CreatesIndependentCopyWithUniqueName()
+    public void Duplicate_ResetsStatusesAndCopiesIndependently()
     {
         var source = NewChecklistWith("One", "Two");
         source.Items[0].Tags.Add("AHU-1");
-        ChecklistService.SetItemCompleted(source.Items[0], true, _clock);
+        ChecklistService.SetItemStatus(source.Items[0], ItemStatus.Complete, _clock);
+        ChecklistService.SetItemStatus(source.Items[1], ItemStatus.Issue, _clock);
+        ChecklistService.SetIssueNote(source.Items[1], "bad reading", _clock);
 
         var copy = ChecklistService.Duplicate(source, new[] { source.Name }, _clock, _ids);
 
@@ -78,11 +80,53 @@ public class ChecklistServiceTests
         Assert.Equal("Test Copy", copy.Name);
         Assert.Equal(2, copy.Items.Count);
         Assert.All(copy.Items, ci => Assert.DoesNotContain(source.Items, si => si.Id == ci.Id));
-        Assert.True(copy.Items[0].Completed);
+
+        // Duplication resets every item for field reuse.
+        Assert.All(copy.Items, i => Assert.Equal(ItemStatus.Open, i.Status));
+        Assert.All(copy.Items, i => Assert.False(i.Completed));
+        Assert.All(copy.Items, i => Assert.Null(i.CompletedAt));
+        Assert.All(copy.Items, i => Assert.Equal(string.Empty, i.IssueNote));
         Assert.Equal(new[] { "AHU-1" }, copy.Items[0].Tags);
+
+        // The original is untouched.
+        Assert.Equal(ItemStatus.Complete, source.Items[0].Status);
+        Assert.Equal(ItemStatus.Issue, source.Items[1].Status);
+        Assert.Equal("bad reading", source.Items[1].IssueNote);
 
         copy.Items[0].Tags.Add("New"); // independent tag list
         Assert.Single(source.Items[0].Tags);
+    }
+
+    [Fact]
+    public void Duplicate_AppliesFindReplaceAndPreservesOrder()
+    {
+        var source = ChecklistService.CreateChecklist("AHU-1 Checkout", _clock, _ids);
+        void Add(string text, string section, string notes) =>
+            ChecklistService.AddItem(source, ChecklistService.CreateItem(text, section, notes, null, _clock, _ids), _clock);
+        Add("Verify AHU-1 supply fan", "AHU-1 Fan", "Command AHU-1 from BAS");
+        Add("Verify AHU-1 sensors", "Sensors", "No change here");
+
+        var copy = ChecklistService.Duplicate(source, new[] { source.Name }, _clock, _ids,
+            newName: "AHU-2 Checkout", find: "AHU-1", replace: "AHU-2");
+
+        Assert.Equal("AHU-2 Checkout", copy.Name);
+        Assert.Equal(new[] { "Verify AHU-2 supply fan", "Verify AHU-2 sensors" }, copy.Items.Select(i => i.Text).ToArray());
+        Assert.Equal("AHU-2 Fan", copy.Items[0].Section);
+        Assert.Equal("Command AHU-2 from BAS", copy.Items[0].Notes);
+        Assert.Equal(new[] { 1, 2 }, copy.Items.Select(i => i.Order).ToArray());
+
+        // Original is not mutated by the replace.
+        Assert.Equal("Verify AHU-1 supply fan", source.Items[0].Text);
+        Assert.Equal("AHU-1 Checkout", source.Name);
+    }
+
+    [Fact]
+    public void Duplicate_BlankFind_DoesNotReplace()
+    {
+        var source = NewChecklistWith("Keep AHU-1");
+        var copy = ChecklistService.Duplicate(source, new[] { source.Name }, _clock, _ids,
+            newName: "Copy", find: "", replace: "X");
+        Assert.Equal("Keep AHU-1", copy.Items[0].Text);
     }
 
     [Fact]
@@ -94,6 +138,96 @@ public class ChecklistServiceTests
         ChecklistService.ResetChecklist(checklist, _clock);
         Assert.All(checklist.Items, i => Assert.False(i.Completed));
         Assert.All(checklist.Items, i => Assert.Null(i.CompletedAt));
+    }
+
+    [Fact]
+    public void ResetChecklist_ReturnsAllToOpenAndClearsIssueState()
+    {
+        var checklist = NewChecklistWith("One", "Two", "Three");
+        ChecklistService.SetItemStatus(checklist.Items[0], ItemStatus.Complete, _clock);
+        ChecklistService.SetItemStatus(checklist.Items[1], ItemStatus.Issue, _clock);
+        ChecklistService.SetIssueNote(checklist.Items[1], "broken", _clock);
+        ChecklistService.SetItemStatus(checklist.Items[2], ItemStatus.NotApplicable, _clock);
+
+        ChecklistService.ResetChecklist(checklist, _clock);
+
+        Assert.All(checklist.Items, i => Assert.Equal(ItemStatus.Open, i.Status));
+        Assert.All(checklist.Items, i => Assert.False(i.Completed));
+        Assert.All(checklist.Items, i => Assert.Null(i.CompletedAt));
+        Assert.All(checklist.Items, i => Assert.Equal(string.Empty, i.IssueNote));
+    }
+
+    // ---------------------------------------------------------------- statuses
+
+    [Fact]
+    public void SetItemStatus_Complete_StampsAndMirrors()
+    {
+        var item = NewChecklistWith("One").Items[0];
+        _clock.Advance(TimeSpan.FromMinutes(4));
+        ChecklistService.SetItemStatus(item, ItemStatus.Complete, _clock);
+        Assert.Equal(ItemStatus.Complete, item.Status);
+        Assert.True(item.Completed);
+        Assert.Equal(_clock.Now, item.CompletedAt);
+    }
+
+    [Theory]
+    [InlineData(ItemStatus.Open)]
+    [InlineData(ItemStatus.Issue)]
+    [InlineData(ItemStatus.NotApplicable)]
+    public void SetItemStatus_AwayFromComplete_ClearsCompletion(ItemStatus target)
+    {
+        var item = NewChecklistWith("One").Items[0];
+        ChecklistService.SetItemStatus(item, ItemStatus.Complete, _clock);
+        ChecklistService.SetItemStatus(item, target, _clock);
+        Assert.Equal(target, item.Status);
+        Assert.False(item.Completed);
+        Assert.Null(item.CompletedAt);
+    }
+
+    [Fact]
+    public void SetItemStatus_DoesNotChangeOrder()
+    {
+        var checklist = NewChecklistWith("One", "Two", "Three");
+        var before = checklist.Items.Select(i => (i.Text, i.Order)).ToArray();
+        ChecklistService.SetItemStatus(checklist.Items[1], ItemStatus.Issue, _clock);
+        ChecklistService.SetItemStatus(checklist.Items[2], ItemStatus.NotApplicable, _clock);
+        Assert.Equal(before, checklist.Items.Select(i => (i.Text, i.Order)).ToArray());
+    }
+
+    [Fact]
+    public void SetItemCompleted_KeepsStatusInSync()
+    {
+        var item = NewChecklistWith("One").Items[0];
+        ChecklistService.SetItemCompleted(item, true, _clock);
+        Assert.Equal(ItemStatus.Complete, item.Status);
+        ChecklistService.SetItemCompleted(item, false, _clock);
+        Assert.Equal(ItemStatus.Open, item.Status);
+    }
+
+    [Fact]
+    public void ItemsByStatus_FiltersAndCounts()
+    {
+        var checklist = NewChecklistWith("Open1", "Done1", "Issue1", "Na1", "Open2");
+        ChecklistService.SetItemStatus(checklist.Items[1], ItemStatus.Complete, _clock);
+        ChecklistService.SetItemStatus(checklist.Items[2], ItemStatus.Issue, _clock);
+        ChecklistService.SetItemStatus(checklist.Items[3], ItemStatus.NotApplicable, _clock);
+
+        Assert.Equal(new[] { "Open1", "Open2" }, ChecklistService.OpenItems(checklist).Select(i => i.Text).ToArray());
+        Assert.Equal(new[] { "Done1" }, ChecklistService.CompletedItems(checklist).Select(i => i.Text).ToArray());
+        Assert.Equal(new[] { "Issue1" }, ChecklistService.IssueItems(checklist).Select(i => i.Text).ToArray());
+        Assert.Equal(new[] { "Na1" }, ChecklistService.NotApplicableItems(checklist).Select(i => i.Text).ToArray());
+
+        Assert.Equal(2, ChecklistService.CountByStatus(checklist, ItemStatus.Open));
+        Assert.Equal(1, ChecklistService.CountByStatus(checklist, ItemStatus.Issue));
+        Assert.Equal(1, ChecklistService.CountByStatus(checklist, ItemStatus.NotApplicable));
+    }
+
+    [Fact]
+    public void SetIssueNote_TrimsAndStores()
+    {
+        var item = NewChecklistWith("One").Items[0];
+        ChecklistService.SetIssueNote(item, "   VFD fault on start   ", _clock);
+        Assert.Equal("VFD fault on start", item.IssueNote);
     }
 
     [Fact]

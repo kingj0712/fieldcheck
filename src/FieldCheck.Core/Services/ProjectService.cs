@@ -3,6 +3,10 @@ using FieldCheck.Core.Utilities;
 
 namespace FieldCheck.Core.Services;
 
+/// <summary>Aggregate status stats for a project, summed across all of its checklists.</summary>
+public readonly record struct ProjectProgress(
+    int ChecklistCount, int TotalItems, int CompletedItems, int OpenItems, int IssueItems, int NotApplicableItems);
+
 /// <summary>Pure project-container rules: project CRUD/ordering and placing checklists inside projects.</summary>
 public static class ProjectService
 {
@@ -120,6 +124,19 @@ public static class ProjectService
 
     public static IEnumerable<Checklist> AllChecklists(AppState state) =>
         state.Projects.OrderBy(p => p.Order).SelectMany(p => p.Checklists.OrderBy(c => c.Order));
+
+    /// <summary>Sums item counts by status across every checklist in the project.</summary>
+    public static ProjectProgress GetProgress(Project project)
+    {
+        var items = project.Checklists.SelectMany(c => c.Items).ToList();
+        return new ProjectProgress(
+            ChecklistCount: project.Checklists.Count,
+            TotalItems: items.Count,
+            CompletedItems: items.Count(i => i.Status == ItemStatus.Complete),
+            OpenItems: items.Count(i => i.Status == ItemStatus.Open),
+            IssueItems: items.Count(i => i.Status == ItemStatus.Issue),
+            NotApplicableItems: items.Count(i => i.Status == ItemStatus.NotApplicable));
+    }
 
     private static string RequireText(string? value, string fieldName)
     {

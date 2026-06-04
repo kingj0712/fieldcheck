@@ -243,6 +243,17 @@ public sealed class FileStorageService : IFileStorageService
                     item.Section = string.IsNullOrWhiteSpace(item.Section) ? "General" : item.Section;
                     item.Notes ??= string.Empty;
                     item.Tags ??= new List<string>();
+                    item.IssueNote ??= string.Empty;
+
+                    // v2 -> v3: files written before statuses only had the boolean "completed".
+                    // A missing "status" binds to the enum default (Open), so an item that was
+                    // completed needs promoting to Complete. Then keep the legacy mirror and the
+                    // completion timestamp consistent with the canonical Status.
+                    if (item.Status == ItemStatus.Open && item.Completed)
+                        item.Status = ItemStatus.Complete;
+                    item.Completed = item.Status == ItemStatus.Complete;
+                    if (item.Status != ItemStatus.Complete)
+                        item.CompletedAt = null;
                 }
             }
         }

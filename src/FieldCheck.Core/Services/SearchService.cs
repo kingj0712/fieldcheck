@@ -104,7 +104,8 @@ public static class SearchService
 
                 foreach (var item in checklist.Items.OrderBy(i => i.Order))
                 {
-                    if (!(Matches(item.Text, term) || Matches(item.Notes, term) || item.Tags.Any(t => Matches(t, term))))
+                    if (!(Matches(item.Text, term) || Matches(item.Notes, term)
+                          || Matches(item.IssueNote, term) || item.Tags.Any(t => Matches(t, term))))
                         continue;
 
                     var section = ChecklistService.NormalizeSection(item.Section);
@@ -113,7 +114,7 @@ public static class SearchService
                         Kind = SearchResultKind.Item,
                         Title = item.Text,
                         PathText = $"{project.Name} / {checklist.Name} / {section}",
-                        Snippet = Snippet(item.Notes),
+                        Snippet = Snippet(string.IsNullOrWhiteSpace(item.Notes) ? item.IssueNote : item.Notes),
                         ProjectId = project.Id,
                         ChecklistId = checklist.Id,
                         Section = section,

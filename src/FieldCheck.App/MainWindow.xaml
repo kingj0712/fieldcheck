@@ -16,6 +16,41 @@
 
     <Window.Resources>
 
+        <!-- =============================================== compact status pill (click to change status) -->
+        <Style x:Key="StatusPillButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="ToolTip" Value="Change status" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Pill" CornerRadius="4" Padding="8,2" MinWidth="64"
+                                Background="{DynamicResource Status.Open.Bg}">
+                            <TextBlock x:Name="Lbl" Text="{Binding StatusLabel}" FontSize="11" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Foreground="{DynamicResource Status.Open.Fg}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsComplete}" Value="True">
+                                <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Status.Complete.Bg}" />
+                                <Setter TargetName="Lbl" Property="Foreground" Value="{DynamicResource Status.Complete.Fg}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsIssue}" Value="True">
+                                <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Status.Issue.Bg}" />
+                                <Setter TargetName="Lbl" Property="Foreground" Value="{DynamicResource Status.Issue.Fg}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsNotApplicable}" Value="True">
+                                <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Status.Na.Bg}" />
+                                <Setter TargetName="Lbl" Property="Foreground" Value="{DynamicResource Status.Na.Fg}" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Pill" Property="Opacity" Value="0.82" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- =============================================== item row -->
         <DataTemplate x:Key="ItemTemplate" DataType="{x:Type vm:ItemViewModel}">
             <Border x:Name="Row" Background="Transparent" Padding="10,7"
@@ -46,13 +81,39 @@
                         </TextBlock.Style>
                     </TextBlock>
 
-                    <CheckBox Grid.Column="1" IsChecked="{Binding IsCompleted}" VerticalAlignment="Top" />
+                    <Button Grid.Column="1" Style="{StaticResource StatusPillButton}" VerticalAlignment="Top" Margin="0,1,0,0"
+                            Click="StatusButton_Click">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Open" Command="{Binding SetStatusCommand}" CommandParameter="open" />
+                                <MenuItem Header="Complete" Command="{Binding SetStatusCommand}" CommandParameter="complete" />
+                                <MenuItem Header="Issue" Command="{Binding SetStatusCommand}" CommandParameter="issue" />
+                                <MenuItem Header="N/A" Command="{Binding SetStatusCommand}" CommandParameter="na" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
 
                     <StackPanel Grid.Column="2" Margin="11,0,8,0" VerticalAlignment="Top">
                         <TextBlock x:Name="ItemText" Text="{Binding Text}" TextWrapping="Wrap"
                                    Foreground="{DynamicResource Text.Primary}" />
                         <TextBlock Text="{Binding Notes}" Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"
                                    TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource Text.Secondary}" Margin="0,3,0,0" />
+
+                        <!-- inline issue note (shown only while the item is an Issue) -->
+                        <Border Visibility="{Binding ShowIssueNoteArea, Converter={StaticResource BoolToVis}}"
+                                Background="{DynamicResource Status.Issue.Bg}" BorderBrush="{DynamicResource Status.Issue.Fg}"
+                                BorderThickness="2,0,0,0" CornerRadius="0,4,4,0" Padding="8,5" Margin="0,5,0,0">
+                            <Grid>
+                                <TextBox x:Name="IssueNoteBox" Text="{Binding IssueNote, UpdateSourceTrigger=LostFocus}"
+                                         Background="Transparent" BorderThickness="0" Padding="0" FontSize="12"
+                                         Foreground="{DynamicResource Text.Primary}" TextWrapping="Wrap" AcceptsReturn="True"
+                                         CaretBrush="{DynamicResource Text.Primary}" />
+                                <TextBlock Text="Add issue note" IsHitTestVisible="False" FontSize="12"
+                                           Foreground="{DynamicResource Status.Issue.Fg}" Opacity="0.85"
+                                           Visibility="{Binding Text, ElementName=IssueNoteBox, Converter={StaticResource StringToVis}, ConverterParameter=Invert}" />
+                            </Grid>
+                        </Border>
+
                         <TextBlock Text="{Binding CompletedAtText}" Visibility="{Binding ShowCompletedAt, Converter={StaticResource BoolToVis}}"
                                    FontSize="11" Foreground="{DynamicResource Text.Secondary}" Margin="0,3,0,0" />
                         <ItemsControl ItemsSource="{Binding Tags}" Margin="0,5,0,0"
@@ -88,10 +149,14 @@
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                <DataTrigger Binding="{Binding IsComplete}" Value="True">
                     <Setter TargetName="ItemText" Property="TextDecorations" Value="Strikethrough" />
                     <Setter TargetName="ItemText" Property="Foreground" Value="{DynamicResource Text.Secondary}" />
                     <Setter TargetName="Row" Property="Opacity" Value="0.82" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsNotApplicable}" Value="True">
+                    <Setter TargetName="ItemText" Property="Foreground" Value="{DynamicResource Text.Secondary}" />
+                    <Setter TargetName="Row" Property="Opacity" Value="0.6" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
                     <Setter TargetName="Row" Property="Background" Value="{DynamicResource State.Selected}" />
@@ -207,6 +272,7 @@
                                 <Button.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="New checklist" Command="{Binding AddChecklistCommand}" />
+                                        <MenuItem Header="Export project report…" Command="{Binding ExportReportCommand}" />
                                         <Separator />
                                         <MenuItem Header="Delete project" Command="{Binding DeleteCommand}" Style="{StaticResource DangerMenuItem}" />
                                     </ContextMenu>
@@ -225,7 +291,7 @@
                             <Setter Property="ContextMenu">
                                 <Setter.Value>
                                     <ContextMenu>
-                                        <MenuItem Header="Duplicate" Command="{Binding DuplicateCommand}" />
+                                        <MenuItem Header="Duplicate…" Command="{Binding DuplicateCommand}" />
                                         <Separator />
                                         <MenuItem Header="Delete checklist" Command="{Binding DeleteCommand}" Style="{StaticResource DangerMenuItem}" />
                                     </ContextMenu>
@@ -287,14 +353,18 @@
                         <StackPanel Orientation="Horizontal">
                             <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding OpenTabLabel}"
                                          IsChecked="{Binding IsOpenView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="open" />
+                            <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding IssuesTabLabel}"
+                                         IsChecked="{Binding IsIssuesView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="issues" />
                             <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding CompletedTabLabel}"
                                          IsChecked="{Binding IsCompletedView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="completed" />
+                            <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding NaTabLabel}"
+                                         IsChecked="{Binding IsNaView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="na" />
                             <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding AllTabLabel}"
                                          IsChecked="{Binding IsAllView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="all" />
                         </StackPanel>
                     </Border>
 
-                    <Grid Grid.Column="1" MaxWidth="320" MinWidth="180" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0">
+                    <Grid Grid.Column="1" MaxWidth="300" MinWidth="120" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0">
                         <TextBox x:Name="SearchBox" Height="32" Padding="10,0" VerticalContentAlignment="Center"
                                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock Text="Filter items" IsHitTestVisible="False" Margin="11,0,11,0" VerticalAlignment="Center"
@@ -315,10 +385,11 @@
                                     <MenuItem Header="Add section" Command="{Binding AddSectionCommand}" />
                                     <MenuItem Header="Reset checklist" Command="{Binding ResetCommand}" />
                                     <Separator />
-                                    <MenuItem Header="Export to CSV…" Command="{Binding ExportCommand}" />
+                                    <MenuItem Header="Export checklist as CSV…" Command="{Binding ExportCommand}" />
+                                    <MenuItem Header="Export checklist as Markdown…" Command="{Binding ExportMarkdownCommand}" />
                                     <MenuItem Header="Print…" Command="{Binding PrintCommand}" />
                                     <Separator />
-                                    <MenuItem Header="Duplicate checklist" Command="{Binding DuplicateCommand}" />
+                                    <MenuItem Header="Duplicate checklist…" Command="{Binding DuplicateCommand}" />
                                     <MenuItem Header="Delete checklist" Command="{Binding DeleteCommand}" Style="{StaticResource DangerMenuItem}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
@@ -351,7 +422,7 @@
                                     Visibility="{Binding ShowEmptyChecklist, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="No items yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
                                        Foreground="{DynamicResource Text.Primary}" />
-                            <TextBlock Text="Add your first checklist item or import a CSV template." TextAlignment="Center"
+                            <TextBlock Text="Add your first item or import from CSV." TextAlignment="Center"
                                        Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
                                 <Button Style="{StaticResource AccentButton}" Content="Add item" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
@@ -364,22 +435,42 @@
                                     Visibility="{Binding ShowNoOpen, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="No open items" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
                                        Foreground="{DynamicResource Text.Primary}" />
-                            <TextBlock Text="Everything in this checklist is complete." TextAlignment="Center"
+                            <TextBlock Text="Everything here is complete, marked issue, or N/A." TextAlignment="Center"
+                                       Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                            <Button Content="View Complete" Command="{Binding ViewCompletedCommand}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+                        </StackPanel>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                                    Visibility="{Binding ShowNoIssues, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="No issues" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Items marked Issue will appear here." TextAlignment="Center"
                                        Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" />
-                            <Button Content="View Completed" Command="{Binding ViewCompletedCommand}" HorizontalAlignment="Center" Margin="0,16,0,0" />
                         </StackPanel>
 
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
                                     Visibility="{Binding ShowNoCompleted, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="No completed items yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                            <TextBlock Text="Nothing completed yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
                                        Foreground="{DynamicResource Text.Primary}" />
-                            <TextBlock Text="Checked items will appear here." TextAlignment="Center"
+                            <TextBlock Text="Completed items will appear here." TextAlignment="Center"
                                        Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" />
                         </StackPanel>
 
-                        <TextBlock Text="No items match your search." Style="{StaticResource Caption}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVis}}" />
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                                    Visibility="{Binding ShowNoNa, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="No N/A items" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Items marked not applicable will appear here." TextAlignment="Center"
+                                       Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" />
+                        </StackPanel>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                                    Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="No matching items" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Try a different filter or clear the search." TextAlignment="Center"
+                                       Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" />
+                        </StackPanel>
 
                         <!-- "moved to completed" toast -->
                         <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,18"
@@ -497,6 +588,7 @@
                         <Border Grid.Row="2" BorderBrush="{DynamicResource Border.Default}" BorderThickness="0,1,0,0" Padding="14,10">
                             <StackPanel>
                                 <Button Style="{StaticResource LinkButton}" Content="Download CSV template" Command="{Binding DownloadTemplateCommand}" />
+                                <Button Style="{StaticResource LinkButton}" Content="Export workspace…" Command="{Binding ExportWorkspaceCommand}" Margin="0,6,0,0" />
                                 <TextBlock Text="THEME" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}" Margin="0,12,0,4" />
                                 <Border Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Default}"
                                         BorderThickness="1" CornerRadius="7" Padding="2">
@@ -542,13 +634,13 @@
                               Stroke="{DynamicResource Text.OnAccent}" StrokeThickness="2.4"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
                     </Border>
-                    <TextBlock Text="FieldCheck" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
+                    <TextBlock Text="No projects yet" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
                                Margin="0,20,0,0" Foreground="{DynamicResource Text.Primary}" />
-                    <TextBlock Text="Create a checklist manually or import one from CSV." HorizontalAlignment="Center"
+                    <TextBlock Text="Create a project or import a CSV to get started." HorizontalAlignment="Center"
                                TextAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource Text.Secondary}" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,28,0,0">
-                        <Button Style="{StaticResource AccentButton}" Content="Create checklist" MinWidth="156"
-                                Padding="16,11" Margin="0,0,12,0" Command="{Binding NewChecklistCommand}" />
+                        <Button Style="{StaticResource AccentButton}" Content="New project" MinWidth="156"
+                                Padding="16,11" Margin="0,0,12,0" Command="{Binding NewProjectCommand}" />
                         <Button Content="Import CSV" MinWidth="156" Padding="16,11" Command="{Binding ImportCsvCommand}" />
                     </StackPanel>
                     <Button Style="{StaticResource LinkButton}" Content="Download CSV template"

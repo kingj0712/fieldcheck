@@ -53,7 +53,8 @@ public sealed class FileStorageServiceTests : IDisposable
                         new ChecklistItem
                         {
                             Id = "item-001", Text = "Verify supply fan command", Section = "Fan",
-                            Notes = "Command fan.", Tags = { "AHU-1", "BAS" }, Order = 1, Completed = true,
+                            Notes = "Command fan.", Tags = { "AHU-1", "BAS" }, Order = 1,
+                            Status = ItemStatus.Complete, Completed = true,
                             CompletedAt = new DateTime(2026, 6, 2, 8, 10, 0),
                             CreatedAt = new DateTime(2026, 6, 2, 8, 0, 0), UpdatedAt = new DateTime(2026, 6, 2, 8, 10, 0)
                         }
@@ -100,6 +101,46 @@ public sealed class FileStorageServiceTests : IDisposable
         Assert.Equal("all", settings.LastSelectedTab);
         Assert.Equal(280, settings.SidebarWidth);
         Assert.True(settings.SidebarCollapsed);
+    }
+
+    [Fact]
+    public void SaveThenLoad_RoundTripsStatusAndIssueNote()
+    {
+        var state = SampleState();
+        state.Projects[0].Checklists[0].Items.Add(new ChecklistItem
+        {
+            Id = "item-002", Text = "Bad sensor", Section = "Sensors", Order = 2,
+            Status = ItemStatus.Issue, IssueNote = "Reads high",
+            CreatedAt = new DateTime(2026, 6, 2, 8, 0, 0), UpdatedAt = new DateTime(2026, 6, 2, 8, 0, 0)
+        });
+        _storage.Save(state);
+
+        var items = _storage.Load().State.Projects.Single().Checklists.Single().Items;
+        var issue = items.Single(i => i.Id == "item-002");
+        Assert.Equal(ItemStatus.Issue, issue.Status);
+        Assert.Equal("Reads high", issue.IssueNote);
+        Assert.False(issue.Completed);
+
+        var done = items.Single(i => i.Id == "item-001");
+        Assert.Equal(ItemStatus.Complete, done.Status);
+        Assert.True(done.Completed);
+    }
+
+    [Fact]
+    public void Load_MigratesCompletedBooleanToStatus()
+    {
+        Directory.CreateDirectory(_dir);
+        var json = "{ \"version\": 2, \"settings\": {}, \"projects\": [ { \"id\": \"p\", \"name\": \"P\", \"order\": 1, \"checklists\": [ " +
+                   "{ \"id\": \"c\", \"name\": \"C\", \"order\": 1, \"items\": [ " +
+                   "{ \"id\": \"i1\", \"text\": \"done\", \"section\": \"S\", \"order\": 1, \"completed\": true, \"completedAt\": \"2026-06-02T08:10:00\", \"createdAt\": \"2026-06-02T08:00:00\", \"updatedAt\": \"2026-06-02T08:00:00\" }, " +
+                   "{ \"id\": \"i2\", \"text\": \"open\", \"section\": \"S\", \"order\": 2, \"completed\": false, \"createdAt\": \"2026-06-02T08:00:00\", \"updatedAt\": \"2026-06-02T08:00:00\" } " +
+                   "] } ] } ] }";
+        File.WriteAllText(_storage.DataFilePath, json);
+
+        var items = _storage.Load().State.Projects.Single().Checklists.Single().Items;
+        Assert.Equal(ItemStatus.Complete, items[0].Status);
+        Assert.Equal(new DateTime(2026, 6, 2, 8, 10, 0), items[0].CompletedAt); // completion timestamp preserved
+        Assert.Equal(ItemStatus.Open, items[1].Status);
     }
 
     [Fact]
@@ -196,6 +237,7 @@ public sealed class FileStorageServiceTests : IDisposable
         Assert.Equal("Verify fan", item.Text);
         Assert.Equal("Fan", item.Section);
         Assert.True(item.Completed);
+        Assert.Equal(ItemStatus.Complete, item.Status); // completed boolean migrated to a status
         Assert.Equal(new DateTime(2026, 6, 2, 8, 10, 0), item.CompletedAt);
         Assert.Equal(1, item.Order);
         Assert.Empty(item.Tags); // initialized empty by migration

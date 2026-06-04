@@ -23,6 +23,7 @@ public sealed class ItemViewModel : BindableBase
         DeleteCommand = new RelayCommand(Delete);
         DuplicateCommand = new RelayCommand(Duplicate);
         ToggleCommand = new RelayCommand(() => IsCompleted = !IsCompleted);
+        SetStatusCommand = new RelayCommand<string>(arg => Status = ParseStatusArg(arg));
     }
 
     public ChecklistItem Model { get; }
@@ -35,21 +36,83 @@ public sealed class ItemViewModel : BindableBase
     public ICommand DeleteCommand { get; }
     public ICommand DuplicateCommand { get; }
     public ICommand ToggleCommand { get; }
+    public ICommand SetStatusCommand { get; }
 
-    public bool IsCompleted
+    // ---------------------------------------------------------------- status
+
+    /// <summary>The canonical four-state status. Setting it autosaves and re-buckets the item;
+    /// it never changes the item's order.</summary>
+    public ItemStatus Status
     {
-        get => Model.Completed;
+        get => Model.Status;
         set
         {
-            if (Model.Completed == value)
+            if (Model.Status == value)
                 return;
-            ChecklistService.SetItemCompleted(Model, value, _services.Clock);
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(ShowCompletedAt));
-            OnPropertyChanged(nameof(CompletedAtText));
-            _owner.HandleItemCompletionChanged(this);
+            var becameComplete = value == ItemStatus.Complete;
+            ChecklistService.SetItemStatus(Model, value, _services.Clock);
+            RaiseStatusProperties();
+            _owner.HandleItemStatusChanged(this, becameComplete);
         }
     }
+
+    public bool IsOpen => Model.Status == ItemStatus.Open;
+    public bool IsComplete => Model.Status == ItemStatus.Complete;
+    public bool IsIssue => Model.Status == ItemStatus.Issue;
+    public bool IsNotApplicable => Model.Status == ItemStatus.NotApplicable;
+    public string StatusLabel => ItemStatusText.Label(Model.Status);
+
+    /// <summary>Legacy completion convenience (checkbox/toast/triggers): mirrors Complete vs Open.</summary>
+    public bool IsCompleted
+    {
+        get => Model.Status == ItemStatus.Complete;
+        set => Status = value ? ItemStatus.Complete : ItemStatus.Open;
+    }
+
+    private static ItemStatus ParseStatusArg(string? arg) => arg switch
+    {
+        "complete" => ItemStatus.Complete,
+        "issue" => ItemStatus.Issue,
+        "na" => ItemStatus.NotApplicable,
+        _ => ItemStatus.Open
+    };
+
+    private void RaiseStatusProperties()
+    {
+        OnPropertyChanged(nameof(Status));
+        OnPropertyChanged(nameof(IsOpen));
+        OnPropertyChanged(nameof(IsComplete));
+        OnPropertyChanged(nameof(IsIssue));
+        OnPropertyChanged(nameof(IsNotApplicable));
+        OnPropertyChanged(nameof(IsCompleted));
+        OnPropertyChanged(nameof(StatusLabel));
+        OnPropertyChanged(nameof(ShowCompletedAt));
+        OnPropertyChanged(nameof(CompletedAtText));
+        OnPropertyChanged(nameof(ShowIssueNoteArea));
+    }
+
+    // ---------------------------------------------------------------- issue note
+
+    /// <summary>Two-way bound to the inline issue-note editor (commits on lost focus, then autosaves).</summary>
+    public string IssueNote
+    {
+        get => Model.IssueNote;
+        set
+        {
+            var incoming = value ?? string.Empty;
+            if (string.Equals(incoming, Model.IssueNote, StringComparison.Ordinal))
+                return;
+            ChecklistService.SetIssueNote(Model, incoming, _services.Clock);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasIssueNote));
+            _owner.HandleItemIssueNoteChanged();
+        }
+    }
+
+    public bool HasIssueNote => !string.IsNullOrWhiteSpace(Model.IssueNote);
+
+    /// <summary>The inline issue-note field is shown only while the item is an Issue.</summary>
+    public bool ShowIssueNoteArea => Model.Status == ItemStatus.Issue;
 
     public string Text => Model.Text;
 
@@ -59,7 +122,7 @@ public sealed class ItemViewModel : BindableBase
     public IReadOnlyList<string> Tags => Model.Tags;
     public bool HasTags => Model.Tags.Count > 0;
 
-    public bool ShowCompletedAt => Model.Completed && Model.CompletedAt is not null;
+    public bool ShowCompletedAt => Model.Status == ItemStatus.Complete && Model.CompletedAt is not null;
     public string CompletedAtText =>
         Model.CompletedAt is { } when ? $"Completed {when:MMM d, yyyy} at {when:h:mm tt}" : string.Empty;
 
@@ -123,9 +186,9 @@ public sealed class ItemViewModel : BindableBase
         OnPropertyChanged(nameof(HasNotes));
         OnPropertyChanged(nameof(Tags));
         OnPropertyChanged(nameof(HasTags));
-        OnPropertyChanged(nameof(IsCompleted));
-        OnPropertyChanged(nameof(ShowCompletedAt));
-        OnPropertyChanged(nameof(CompletedAtText));
+        OnPropertyChanged(nameof(IssueNote));
+        OnPropertyChanged(nameof(HasIssueNote));
         OnPropertyChanged(nameof(Order));
+        RaiseStatusProperties();
     }
 }

@@ -99,6 +99,18 @@ public class SearchServiceTests
     }
 
     [Fact]
+    public void FindsItemByIssueNote()
+    {
+        var state = Sample();
+        var item = state.Projects[0].Checklists[0].Items.First(i => i.Id == "item-001");
+        item.Status = ItemStatus.Issue;
+        item.IssueNote = "Damper actuator unresponsive";
+
+        var r = SearchService.Search(state, "actuator unresponsive");
+        Assert.Contains(r, x => x.Kind == SearchResultKind.Item && x.ItemId == "item-001");
+    }
+
+    [Fact]
     public void IsCaseInsensitive()
     {
         var r = SearchService.Search(Sample(), "verify supply FAN");

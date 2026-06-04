@@ -25,9 +25,23 @@ public sealed class ChecklistItem
     /// <summary>1-based position within the parent checklist. This is my stable sort key.</summary>
     public int Order { get; set; }
 
+    /// <summary>
+    /// The verification state. This is the canonical field for the four-state workflow. The legacy
+    /// <see cref="Completed"/> flag is kept in sync (it equals <c>Status == Complete</c>) for
+    /// backward compatibility and CSV.
+    /// </summary>
+    public ItemStatus Status { get; set; } = ItemStatus.Open;
+
+    /// <summary>What is wrong, when <see cref="Status"/> is <see cref="ItemStatus.Issue"/>. Otherwise blank.</summary>
+    public string IssueNote { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Legacy completion mirror, kept equal to <c>Status == Complete</c>. Persisted so older
+    /// FieldCheck builds and the CSV "completed" column keep working.
+    /// </summary>
     public bool Completed { get; set; }
 
-    /// <summary>When the item was completed, or null while it is open.</summary>
+    /// <summary>When the item was completed, or null while it is not Complete.</summary>
     public DateTime? CompletedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
@@ -43,6 +57,8 @@ public sealed class ChecklistItem
         Notes = Notes,
         Tags = new List<string>(Tags),
         Order = Order,
+        Status = Status,
+        IssueNote = IssueNote,
         Completed = Completed,
         CompletedAt = CompletedAt,
         CreatedAt = CreatedAt,

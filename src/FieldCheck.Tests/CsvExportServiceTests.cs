@@ -16,13 +16,15 @@ public class CsvExportServiceTests
             new ChecklistItem
             {
                 Id = "item-002", Text = "Second, with comma", Section = "Fan",
-                Notes = "Say \"hi\"", Tags = { "AHU-1", "BAS" }, Order = 2, Completed = true,
+                Notes = "Say \"hi\"", Tags = { "AHU-1", "BAS" }, Order = 2,
+                Status = ItemStatus.Complete, Completed = true,
                 CompletedAt = new DateTime(2026, 6, 2, 9, 30, 0)
             },
             new ChecklistItem
             {
                 Id = "item-001", Text = "First item", Section = "Sensors",
-                Notes = "", Tags = { "Sensor" }, Order = 1, Completed = false
+                Notes = "", Tags = { "Sensor" }, Order = 1,
+                Status = ItemStatus.Issue, IssueNote = "Reading drifts"
             }
         }
     };
@@ -32,7 +34,8 @@ public class CsvExportServiceTests
     {
         var rows = Csv.Parse(CsvExportService.Export("Commissioning", SampleChecklist()));
         Assert.Equal(
-            new[] { "project_name", "checklist_name", "section", "item_text", "notes", "tags", "completed", "completed_at", "order" },
+            new[] { "project_name", "checklist_name", "section", "item_text", "notes", "tags",
+                    "status", "issue_note", "completed", "completed_at", "order" },
             rows[0]);
     }
 
@@ -50,8 +53,8 @@ public class CsvExportServiceTests
         var rows = Csv.Parse(CsvExportService.Export("Commissioning", SampleChecklist()));
         Assert.Equal("First item", rows[1][3]);
         Assert.Equal("Second, with comma", rows[2][3]);
-        Assert.Equal("1", rows[1][8]);
-        Assert.Equal("2", rows[2][8]);
+        Assert.Equal("1", rows[1][10]);
+        Assert.Equal("2", rows[2][10]);
     }
 
     [Fact]
@@ -63,14 +66,24 @@ public class CsvExportServiceTests
     }
 
     [Fact]
+    public void Export_WritesStatusAndIssueNote()
+    {
+        var rows = Csv.Parse(CsvExportService.Export("Commissioning", SampleChecklist()));
+        Assert.Equal("Issue", rows[1][6]);
+        Assert.Equal("Reading drifts", rows[1][7]);
+        Assert.Equal("Complete", rows[2][6]);
+        Assert.Equal("", rows[2][7]);
+    }
+
+    [Fact]
     public void Export_IncludesCompletedAndIncompleteItems()
     {
         var rows = Csv.Parse(CsvExportService.Export("Commissioning", SampleChecklist()));
         Assert.Equal(3, rows.Count);
-        Assert.Equal("false", rows[1][6]);
-        Assert.Equal("true", rows[2][6]);
-        Assert.Equal("", rows[1][7]);
-        Assert.Equal("2026-06-02T09:30:00", rows[2][7]);
+        Assert.Equal("false", rows[1][8]);
+        Assert.Equal("true", rows[2][8]);
+        Assert.Equal("", rows[1][9]);
+        Assert.Equal("2026-06-02T09:30:00", rows[2][9]);
     }
 
     [Fact]
@@ -94,5 +107,8 @@ public class CsvExportServiceTests
         Assert.Equal("AHU_1", checklist.Name);
         Assert.Equal(2, checklist.Items.Count);
         Assert.Contains(checklist.Items, i => i.Tags.SequenceEqual(new[] { "AHU-1", "BAS" }));
+        // status and issue note survive the round trip
+        Assert.Contains(checklist.Items, i => i.Status == ItemStatus.Issue && i.IssueNote == "Reading drifts");
+        Assert.Contains(checklist.Items, i => i.Status == ItemStatus.Complete && i.Completed);
     }
 }

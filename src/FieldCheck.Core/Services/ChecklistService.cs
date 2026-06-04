@@ -57,32 +57,78 @@ public static class ChecklistService
         checklist.UpdatedAt = clock.Now;
     }
 
-    /// <summary>Creates an independent copy with new ids and a unique name within its project.</summary>
-    public static Checklist Duplicate(Checklist source, IEnumerable<string> existingNames, IClock clock, IIdGenerator ids)
+    /// <summary>
+    /// Creates an independent copy with new ids and a unique name within its project. Built for
+    /// field reuse (e.g. AHU-1 → AHU-2): every copied item is reset to <see cref="ItemStatus.Open"/>
+    /// with its completion timestamp and issue note cleared, and an optional case-sensitive
+    /// find/replace is applied to the name, item text, notes, and section. Order and sections are
+    /// preserved; the source checklist is never modified.
+    /// </summary>
+    public static Checklist Duplicate(
+        Checklist source, IEnumerable<string> existingNames, IClock clock, IIdGenerator ids,
+        string? newName = null, string? find = null, string? replace = null)
     {
         var copy = source.Clone();
         var now = clock.Now;
+        var doReplace = !string.IsNullOrEmpty(find); // a blank Find means "do not replace"
+
+        var desired = string.IsNullOrWhiteSpace(newName) ? source.Name : newName.Trim();
+        if (doReplace)
+            desired = ApplyReplace(desired, find!, replace);
+
         copy.Id = ids.NewId("checklist");
-        copy.Name = MakeUniqueName(existingNames, source.Name);
+        copy.Name = MakeUniqueName(existingNames, desired);
         copy.Order = 0;
         copy.CreatedAt = now;
         copy.UpdatedAt = now;
+
         foreach (var item in copy.Items)
+        {
             item.Id = ids.NewId("item");
+            // Reset to a fresh, unverified state so the duplicate is ready for a new round.
+            item.Status = ItemStatus.Open;
+            item.Completed = false;
+            item.CompletedAt = null;
+            item.IssueNote = string.Empty;
+            item.CreatedAt = now;
+            item.UpdatedAt = now;
+
+            if (doReplace)
+            {
+                item.Text = ApplyReplace(item.Text, find!, replace);
+                item.Notes = ApplyReplace(item.Notes, find!, replace);
+                item.Section = NormalizeSection(ApplyReplace(item.Section, find!, replace));
+            }
+        }
+
         return copy;
     }
 
-    /// <summary>Marks every item incomplete again. Order, text, section, and tags are untouched.</summary>
+    /// <summary>Case-sensitive literal replace; a blank find returns the value unchanged.</summary>
+    public static string ApplyReplace(string? value, string? find, string? replace)
+    {
+        var text = value ?? string.Empty;
+        if (string.IsNullOrEmpty(find))
+            return text;
+        return text.Replace(find, replace ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Returns every item to <see cref="ItemStatus.Open"/>, clearing completion timestamps and issue
+    /// notes. Order, text, section, and tags are untouched.
+    /// </summary>
     public static void ResetChecklist(Checklist checklist, IClock clock)
     {
         var now = clock.Now;
         var changed = false;
         foreach (var item in checklist.Items)
         {
-            if (!item.Completed && item.CompletedAt is null)
+            if (item.Status == ItemStatus.Open && !item.Completed && item.CompletedAt is null && item.IssueNote.Length == 0)
                 continue;
+            item.Status = ItemStatus.Open;
             item.Completed = false;
             item.CompletedAt = null;
+            item.IssueNote = string.Empty;
             item.UpdatedAt = now;
             changed = true;
         }
@@ -121,16 +167,34 @@ public static class ChecklistService
     }
 
     /// <summary>
-    /// Toggles completion. Completing stamps <see cref="ChecklistItem.CompletedAt"/>; un-completing
-    /// clears it. This never touches <see cref="ChecklistItem.Order"/>, which is why an un-checked
-    /// item drops straight back into its original position.
+    /// Sets the item's <see cref="ItemStatus"/> and keeps the legacy <see cref="ChecklistItem.Completed"/>
+    /// mirror and <see cref="ChecklistItem.CompletedAt"/> consistent: Complete stamps the timestamp
+    /// (preserving an existing one), every other status clears it. This never touches
+    /// <see cref="ChecklistItem.Order"/>, so an item stays in its original position when its status
+    /// changes. The issue note is preserved across status changes (it is only shown/exported while
+    /// the item is an Issue).
     /// </summary>
-    public static void SetItemCompleted(ChecklistItem item, bool completed, IClock clock)
+    public static void SetItemStatus(ChecklistItem item, ItemStatus status, IClock clock)
     {
         var now = clock.Now;
-        item.Completed = completed;
-        item.CompletedAt = completed ? now : null;
+        item.Status = status;
+        item.Completed = status == ItemStatus.Complete;
+        item.CompletedAt = status == ItemStatus.Complete ? (item.CompletedAt ?? now) : null;
         item.UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Backward-compatible completion toggle: maps to <see cref="ItemStatus.Complete"/> / Open and
+    /// keeps the status, mirror flag, and timestamp in sync.
+    /// </summary>
+    public static void SetItemCompleted(ChecklistItem item, bool completed, IClock clock)
+        => SetItemStatus(item, completed ? ItemStatus.Complete : ItemStatus.Open, clock);
+
+    /// <summary>Sets (trims) the issue note that explains an <see cref="ItemStatus.Issue"/>.</summary>
+    public static void SetIssueNote(ChecklistItem item, string? note, IClock clock)
+    {
+        item.IssueNote = (note ?? string.Empty).Trim();
+        item.UpdatedAt = clock.Now;
     }
 
     /// <summary>Changes an item's section (used by rename-section operations).</summary>
@@ -205,11 +269,24 @@ public static class ChecklistService
     public static IEnumerable<ChecklistItem> OrderedItems(Checklist checklist) =>
         checklist.Items.OrderBy(i => i.Order);
 
+    /// <summary>Items with a given status, in order. The per-status tabs use this.</summary>
+    public static IEnumerable<ChecklistItem> ItemsByStatus(Checklist checklist, ItemStatus status) =>
+        checklist.Items.Where(i => i.Status == status).OrderBy(i => i.Order);
+
     public static IEnumerable<ChecklistItem> OpenItems(Checklist checklist) =>
-        checklist.Items.Where(i => !i.Completed).OrderBy(i => i.Order);
+        ItemsByStatus(checklist, ItemStatus.Open);
 
     public static IEnumerable<ChecklistItem> CompletedItems(Checklist checklist) =>
-        checklist.Items.Where(i => i.Completed).OrderBy(i => i.Order);
+        ItemsByStatus(checklist, ItemStatus.Complete);
+
+    public static IEnumerable<ChecklistItem> IssueItems(Checklist checklist) =>
+        ItemsByStatus(checklist, ItemStatus.Issue);
+
+    public static IEnumerable<ChecklistItem> NotApplicableItems(Checklist checklist) =>
+        ItemsByStatus(checklist, ItemStatus.NotApplicable);
+
+    public static int CountByStatus(Checklist checklist, ItemStatus status) =>
+        checklist.Items.Count(i => i.Status == status);
 
     /// <summary>
     /// Groups items by section. Sections appear in the order their first item appears (by order),

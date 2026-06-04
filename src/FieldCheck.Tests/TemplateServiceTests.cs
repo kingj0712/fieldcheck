@@ -12,7 +12,7 @@ public class TemplateServiceTests
     {
         var rows = Csv.Parse(TemplateService.GetTemplateCsv());
         Assert.Equal(
-            new[] { "project_name", "checklist_name", "section", "item_text", "notes", "tags" },
+            new[] { "project_name", "checklist_name", "section", "item_text", "notes", "tags", "status", "issue_note" },
             rows[0]);
     }
 
@@ -32,5 +32,11 @@ public class TemplateServiceTests
         Assert.Equal("Commissioning Checklist", project.Name);
         var ahu = project.Checklists.Single(c => c.Name == "AHU_1");
         Assert.Contains(ahu.Items, i => i.Tags.Contains("BAS"));
+
+        // the template demonstrates the status + issue_note columns
+        var allItems = project.Checklists.SelectMany(c => c.Items).ToList();
+        Assert.Contains(allItems, i => i.Status == ItemStatus.Issue && !string.IsNullOrWhiteSpace(i.IssueNote));
+        Assert.Contains(allItems, i => i.Status == ItemStatus.Complete);
+        Assert.Contains(allItems, i => i.Status == ItemStatus.NotApplicable);
     }
 }

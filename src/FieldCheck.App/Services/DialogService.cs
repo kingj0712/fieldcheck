@@ -35,6 +35,28 @@ public sealed class DialogService : IDialogService
             : null;
     }
 
+    public DuplicateChecklistInput? PromptDuplicateChecklist(string suggestedName)
+    {
+        var dialog = CreateEntry();
+        dialog.Configure(
+            "Duplicate checklist",
+            field1Label: "New checklist name", field1Value: suggestedName,
+            showField2: true, field2Label: "Find (optional, case-sensitive)", field2Value: string.Empty,
+            showField3: true, field3Label: "Replace with (optional)", field3Value: string.Empty,
+            confirmText: "Duplicate");
+        return dialog.ShowDialog() == true
+            ? new DuplicateChecklistInput(dialog.Field1Text, dialog.Field2Text, dialog.Field3Text)
+            : null;
+    }
+
+    public string? PickFolder(string title)
+    {
+        var dialog = new OpenFolderDialog { Title = title, Multiselect = false };
+        return (OwnerWindow is not null ? dialog.ShowDialog(OwnerWindow) : dialog.ShowDialog()) == true
+            ? dialog.FolderName
+            : null;
+    }
+
     public bool Confirm(string title, string message, string confirmText = "Delete", bool destructive = true)
     {
         var dialog = new MessageDialog { Owner = OwnerWindow };
@@ -90,7 +112,7 @@ public sealed class DialogService : IDialogService
     }
 
     public string? SaveFile(string title, string suggestedFileName,
-        string filter = "CSV file (*.csv)|*.csv|All files (*.*)|*.*")
+        string filter = "CSV file (*.csv)|*.csv|All files (*.*)|*.*", string defaultExt = "csv")
     {
         var dialog = new SaveFileDialog
         {
@@ -99,7 +121,7 @@ public sealed class DialogService : IDialogService
             Filter = filter,
             OverwritePrompt = true,
             AddExtension = true,
-            DefaultExt = "csv"
+            DefaultExt = defaultExt
         };
         return Show(dialog) ? dialog.FileName : null;
     }

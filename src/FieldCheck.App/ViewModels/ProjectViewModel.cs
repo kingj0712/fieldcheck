@@ -26,6 +26,7 @@ public sealed class ProjectViewModel : BindableBase
 
         AddChecklistCommand = new RelayCommand(() => _host.RequestNewChecklist(this));
         DeleteCommand = new RelayCommand(() => _host.RequestDeleteProject(this));
+        ExportReportCommand = new RelayCommand(ExportReport);
         ToggleExpandCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
         ReorderChecklistsCommand = new RelayCommand<ReorderRequest>(ReorderChecklists);
     }
@@ -37,8 +38,26 @@ public sealed class ProjectViewModel : BindableBase
 
     public ICommand AddChecklistCommand { get; }
     public ICommand DeleteCommand { get; }
+    public ICommand ExportReportCommand { get; }
     public ICommand ToggleExpandCommand { get; }
     public ICommand ReorderChecklistsCommand { get; }
+
+    private void ExportReport()
+    {
+        var path = _services.Dialogs.SaveFile("Export project report as Markdown",
+            WorkspaceExportService.SanitizeFileName(Model.Name) + " - project report.md",
+            "Markdown file (*.md)|*.md|All files (*.*)|*.*", defaultExt: "md");
+        if (path is null)
+            return;
+        try
+        {
+            System.IO.File.WriteAllText(path, MarkdownReportService.ProjectReport(Model, _services.Clock.Now));
+        }
+        catch (Exception ex)
+        {
+            _services.Dialogs.ShowMessage("Export failed", $"FieldCheck could not export the project report:\n\n{ex.Message}");
+        }
+    }
 
     public string Name
     {
