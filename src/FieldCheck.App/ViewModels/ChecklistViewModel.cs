@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using FieldCheck.App.Behaviors;
@@ -329,6 +330,26 @@ public sealed class ChecklistViewModel : BindableBase
         Model.UpdatedAt = _services.Clock.Now;
         Recompute();
         _services.Save();
+    }
+
+    /// <summary>Reveals an item navigated to from global search: clears any filter, switches to the
+    /// matching tab, and briefly highlights/scrolls to it (after the view has laid out).</summary>
+    public void RevealItem(string itemId, bool completed)
+    {
+        SearchText = string.Empty;
+        ViewModeIndex = completed ? 1 : 0;
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_byId.TryGetValue(itemId, out var vm))
+                vm.Highlight();
+        }), DispatcherPriority.Background);
+    }
+
+    /// <summary>Reveals a section navigated to from global search: clears any filter and shows the Open view.</summary>
+    public void RevealSection()
+    {
+        SearchText = string.Empty;
+        ViewModeIndex = 0;
     }
 
     private void Reset()

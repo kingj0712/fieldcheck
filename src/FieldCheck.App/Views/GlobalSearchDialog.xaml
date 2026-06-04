@@ -1,0 +1,89 @@
+<Window x:Class="FieldCheck.App.Views.GlobalSearchDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svc="clr-namespace:FieldCheck.Core.Services;assembly=FieldCheck.Core"
+        Title="Search all"
+        Width="640" Height="520"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI" Foreground="{DynamicResource Text.Primary}"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
+    <Border Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Strong}"
+            BorderThickness="1" CornerRadius="10">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.30" Color="Black" />
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- search input -->
+            <Border Grid.Row="0" BorderBrush="{DynamicResource Border.Default}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE721;" FontSize="16"
+                               Foreground="{DynamicResource Text.Secondary}" VerticalAlignment="Center" Margin="16,0,10,0" />
+                    <Grid Grid.Column="1" Margin="0,0,16,0">
+                        <TextBox x:Name="SearchBox" BorderThickness="0" Background="Transparent" FontSize="16"
+                                 Padding="0,14" VerticalContentAlignment="Center"
+                                 CaretBrush="{DynamicResource Text.Primary}" SelectionBrush="{DynamicResource Accent}"
+                                 TextChanged="SearchBox_TextChanged" PreviewKeyDown="SearchBox_PreviewKeyDown" />
+                        <TextBlock Text="Type to search…" IsHitTestVisible="False" FontSize="16" Opacity="0.7"
+                                   Foreground="{DynamicResource Text.Secondary}" VerticalAlignment="Center"
+                                   Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource StringToVis}, ConverterParameter=Invert}" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- results / states -->
+            <Grid Grid.Row="1">
+                <ListBox x:Name="ResultsList" Margin="6" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         MouseDoubleClick="ResultsList_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type svc:SearchResult}">
+                            <Grid Margin="8,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{Binding Title}" FontSize="14" Foreground="{DynamicResource Text.Primary}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding PathText}" FontSize="12" Foreground="{DynamicResource Text.Secondary}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,1,0,0"
+                                               Visibility="{Binding PathText, Converter={StaticResource StringToVis}}" />
+                                    <TextBlock Text="{Binding Snippet}" FontSize="11.5" Foreground="{DynamicResource Text.Secondary}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,1,0,0"
+                                               Visibility="{Binding Snippet, Converter={StaticResource StringToVis}}" />
+                                </StackPanel>
+                                <Border Grid.Column="1" Style="{StaticResource Pill}" VerticalAlignment="Center" Margin="10,0,0,0">
+                                    <TextBlock Text="{Binding KindLabel}" FontSize="11" Foreground="{DynamicResource Text.Secondary}" />
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock x:Name="DefaultState" Text="Search across all projects, checklists, sections, and items."
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40,0"
+                           TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource Text.Secondary}" />
+                <TextBlock x:Name="EmptyState" Text="No matches. Try a different term." Visibility="Collapsed"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Text.Secondary}" />
+            </Grid>
+
+            <!-- footer hint -->
+            <Border Grid.Row="2" BorderBrush="{DynamicResource Border.Default}" BorderThickness="0,1,0,0" Padding="14,8">
+                <TextBlock Foreground="{DynamicResource Text.Secondary}" FontSize="11.5"
+                           Text="↑ ↓  navigate     ·     Enter  open     ·     Esc  close" />
+            </Border>
+        </Grid>
+    </Border>
+</Window>

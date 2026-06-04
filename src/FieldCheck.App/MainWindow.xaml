@@ -10,11 +10,16 @@
         Foreground="{DynamicResource Text.Primary}"
         TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True" SnapsToDevicePixels="True">
 
+    <Window.InputBindings>
+        <KeyBinding Key="K" Modifiers="Control" Command="{Binding OpenGlobalSearchCommand}" />
+    </Window.InputBindings>
+
     <Window.Resources>
 
         <!-- =============================================== item row -->
         <DataTemplate x:Key="ItemTemplate" DataType="{x:Type vm:ItemViewModel}">
-            <Border x:Name="Row" Background="Transparent" Padding="10,7">
+            <Border x:Name="Row" Background="Transparent" Padding="10,7"
+                    beh:BringIntoViewBehavior.Trigger="{Binding IsHighlighted}">
                 <Border.InputBindings>
                     <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding EditCommand}" />
                 </Border.InputBindings>
@@ -87,6 +92,9 @@
                     <Setter TargetName="ItemText" Property="TextDecorations" Value="Strikethrough" />
                     <Setter TargetName="ItemText" Property="Foreground" Value="{DynamicResource Text.Secondary}" />
                     <Setter TargetName="Row" Property="Opacity" Value="0.82" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource State.Selected}" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -287,20 +295,21 @@
                     </Border>
 
                     <Grid Grid.Column="1" MaxWidth="320" MinWidth="180" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0">
-                        <TextBox x:Name="SearchBox" Padding="10,7" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-                        <TextBlock Text="Search items" IsHitTestVisible="False" Margin="11,0,11,0" VerticalAlignment="Center"
+                        <TextBox x:Name="SearchBox" Height="32" Padding="10,0" VerticalContentAlignment="Center"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Text="Filter items" IsHitTestVisible="False" Margin="11,0,11,0" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text.Secondary}"
                                    Visibility="{Binding SearchText, Converter={StaticResource StringToVis}, ConverterParameter=Invert}" />
                     </Grid>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Style="{StaticResource AccentButton}" Command="{Binding AddItemCommand}" Margin="0,0,8,0">
+                        <Button Style="{StaticResource AccentButton}" Height="32" Command="{Binding AddItemCommand}" Margin="0,0,8,0">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" Margin="0,0,7,0" VerticalAlignment="Center" />
                                 <TextBlock Text="Add item" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <Button x:Name="ChecklistMore" Content="Actions" Click="ChecklistMore_Click">
+                        <Button x:Name="ChecklistMore" Height="32" Content="Actions" Click="ChecklistMore_Click">
                             <Button.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Add section" Command="{Binding AddSectionCommand}" />
@@ -418,8 +427,23 @@
                     </Border>
                     <TextBlock Text="FieldCheck" FontWeight="SemiBold" FontSize="15" Margin="9,0,0,0" VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="{Binding SaveStatusText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                           Visibility="{Binding ShowSaveStatus, Converter={StaticResource BoolToVis}}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Command="{Binding OpenGlobalSearchCommand}" Height="32" Padding="10,0" MinWidth="200"
+                            HorizontalContentAlignment="Left" Margin="0,0,12,0"
+                            ToolTip="Search all projects and checklists (Ctrl+K)"
+                            Visibility="{Binding HasProjects, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" FontSize="13"
+                                       Foreground="{DynamicResource Text.Secondary}" VerticalAlignment="Center" />
+                            <TextBlock Text="Search all" Margin="8,0,0,0" Foreground="{DynamicResource Text.Secondary}" VerticalAlignment="Center" />
+                            <Border Background="{DynamicResource State.Hover}" CornerRadius="4" Padding="5,1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="Ctrl+K" FontSize="10.5" Foreground="{DynamicResource Text.Secondary}" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="{Binding SaveStatusText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               Visibility="{Binding ShowSaveStatus, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
             </Grid>
         </Border>
 

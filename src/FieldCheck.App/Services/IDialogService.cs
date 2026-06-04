@@ -1,3 +1,4 @@
+using FieldCheck.Core.Models;
 using FieldCheck.Core.Services;
 
 namespace FieldCheck.App.Services;
@@ -23,6 +24,9 @@ public interface IDialogService
     void ShowMessage(string title, string message);
 
     void ShowImportSummary(CsvImportResult result, string sourceName);
+
+    /// <summary>Opens the global (command-palette) search over the whole workspace; returns the chosen result or null.</summary>
+    SearchResult? ShowGlobalSearch(AppState state);
 
     /// <summary>Open-file picker for a CSV. Returns the chosen path or null.</summary>
     string? OpenCsvFile();

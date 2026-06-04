@@ -1,6 +1,7 @@
 using System.Text;
 using System.Windows;
 using FieldCheck.App.Views;
+using FieldCheck.Core.Models;
 using FieldCheck.Core.Services;
 using Microsoft.Win32;
 
@@ -69,6 +70,12 @@ public sealed class DialogService : IDialogService
         }
 
         ShowMessage("Import complete", sb.ToString().TrimEnd());
+    }
+
+    public SearchResult? ShowGlobalSearch(AppState state)
+    {
+        var dialog = new GlobalSearchDialog(state) { Owner = OwnerWindow };
+        return dialog.ShowDialog() == true ? dialog.SelectedResult : null;
     }
 
     public string? OpenCsvFile()
