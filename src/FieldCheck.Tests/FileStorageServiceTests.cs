@@ -33,7 +33,9 @@ public sealed class FileStorageServiceTests : IDisposable
                 LastOpenedChecklistId = "checklist-001",
                 LastSelectedTab = "all",
                 WindowWidth = 1024,
-                WindowHeight = 768
+                WindowHeight = 768,
+                SidebarWidth = 280,
+                SidebarCollapsed = true
             }
         };
         var project = new Project
@@ -96,6 +98,8 @@ public sealed class FileStorageServiceTests : IDisposable
         Assert.Equal(ThemeMode.Dark, settings.Theme);
         Assert.Equal("checklist-001", settings.LastOpenedChecklistId);
         Assert.Equal("all", settings.LastSelectedTab);
+        Assert.Equal(280, settings.SidebarWidth);
+        Assert.True(settings.SidebarCollapsed);
     }
 
     [Fact]
@@ -196,5 +200,7 @@ public sealed class FileStorageServiceTests : IDisposable
         Assert.Equal(1, item.Order);
         Assert.Empty(item.Tags); // initialized empty by migration
         Assert.Equal("checklist-001", result.State.Settings.LastOpenedChecklistId); // settings preserved
+        Assert.Equal(300, result.State.Settings.SidebarWidth);  // new fields default cleanly for old files
+        Assert.False(result.State.Settings.SidebarCollapsed);
     }
 }

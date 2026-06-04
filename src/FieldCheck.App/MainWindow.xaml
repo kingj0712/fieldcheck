@@ -1,0 +1,536 @@
+<Window x:Class="FieldCheck.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:FieldCheck.App.ViewModels"
+        xmlns:beh="clr-namespace:FieldCheck.App.Behaviors"
+        xmlns:ctrl="clr-namespace:FieldCheck.App.Controls"
+        Title="FieldCheck" MinWidth="940" MinHeight="620" Width="1240" Height="820"
+        FontFamily="Segoe UI"
+        Background="{DynamicResource Surface.Window}"
+        Foreground="{DynamicResource Text.Primary}"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True" SnapsToDevicePixels="True">
+
+    <Window.Resources>
+
+        <!-- =============================================== item row -->
+        <DataTemplate x:Key="ItemTemplate" DataType="{x:Type vm:ItemViewModel}">
+            <Border x:Name="Row" Background="Transparent" Padding="10,7">
+                <Border.InputBindings>
+                    <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding EditCommand}" />
+                </Border.InputBindings>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="&#xE784;" FontSize="14"
+                               Foreground="{DynamicResource Text.Secondary}" VerticalAlignment="Top" Margin="0,3,8,0"
+                               Cursor="SizeAll" ToolTip="Drag to reorder within this section">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Hidden" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <CheckBox Grid.Column="1" IsChecked="{Binding IsCompleted}" VerticalAlignment="Top" />
+
+                    <StackPanel Grid.Column="2" Margin="11,0,8,0" VerticalAlignment="Top">
+                        <TextBlock x:Name="ItemText" Text="{Binding Text}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Text.Primary}" />
+                        <TextBlock Text="{Binding Notes}" Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"
+                                   TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource Text.Secondary}" Margin="0,3,0,0" />
+                        <TextBlock Text="{Binding CompletedAtText}" Visibility="{Binding ShowCompletedAt, Converter={StaticResource BoolToVis}}"
+                                   FontSize="11" Foreground="{DynamicResource Text.Secondary}" Margin="0,3,0,0" />
+                        <ItemsControl ItemsSource="{Binding Tags}" Margin="0,5,0,0"
+                                      Visibility="{Binding HasTags, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Pill}" Margin="0,0,6,4">
+                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="{DynamicResource Text.Secondary}" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Top">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Hidden" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Button Style="{StaticResource IconButton}" FontFamily="Segoe MDL2 Assets" Content="&#xE70F;" ToolTip="Edit" Command="{Binding EditCommand}" />
+                        <Button Style="{StaticResource IconButton}" FontFamily="Segoe MDL2 Assets" Content="&#xE8C8;" ToolTip="Duplicate" Command="{Binding DuplicateCommand}" />
+                        <Button Style="{StaticResource IconButton}" FontFamily="Segoe MDL2 Assets" Content="&#xE74D;" ToolTip="Delete" Command="{Binding DeleteCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                    <Setter TargetName="ItemText" Property="TextDecorations" Value="Strikethrough" />
+                    <Setter TargetName="ItemText" Property="Foreground" Value="{DynamicResource Text.Secondary}" />
+                    <Setter TargetName="Row" Property="Opacity" Value="0.82" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- =============================================== section group -->
+        <DataTemplate x:Key="SectionTemplate" DataType="{x:Type vm:SectionGroupViewModel}">
+            <StackPanel Margin="0,4,0,14">
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Style="{StaticResource IconButton}" Command="{Binding ToggleCollapseCommand}" Padding="2" Margin="0,0,4,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#xE70D;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
+                                            <Setter Property="Text" Value="&#xE76C;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button>
+                    <TextBlock Grid.Column="1" Text="{Binding HeaderText}" Style="{StaticResource SectionHeaderText}"
+                               VerticalAlignment="Center" />
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Border.Default}" Margin="0,0,0,4" />
+                <ListBox ItemsSource="{Binding Items}" ItemTemplate="{StaticResource ItemTemplate}"
+                         ItemContainerStyle="{StaticResource PlainRow}"
+                         Visibility="{Binding IsCollapsed, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}"
+                         beh:DragDropReorderBehavior.IsEnabled="{Binding CanReorder}"
+                         beh:DragDropReorderBehavior.DropCommand="{Binding ReorderCommand}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- =============================================== sidebar checklist row -->
+        <DataTemplate x:Key="ChecklistRowTemplate" DataType="{x:Type vm:ChecklistViewModel}">
+            <Grid Margin="10,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource Text.Primary}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Name}" />
+                <TextBlock Grid.Column="1" Text="{Binding ProgressBadge}" FontSize="11" Foreground="{DynamicResource Text.Secondary}"
+                           VerticalAlignment="Center" Margin="8,0,0,0" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- =============================================== sidebar project group -->
+        <DataTemplate x:Key="ProjectTemplate" DataType="{x:Type vm:ProjectViewModel}">
+            <StackPanel Margin="0,3,0,10">
+                <Grid x:Name="ProjHeader" Background="Transparent">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Style="{StaticResource IconButton}" Command="{Binding ToggleExpandCommand}" Padding="4" Margin="2,0,0,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#xE76C;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                            <Setter Property="Text" Value="&#xE70D;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Button>
+                    <ctrl:EditableLabel Grid.Column="1" Text="{Binding Name, Mode=TwoWay}" VerticalAlignment="Center"
+                                        FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Text.Primary}" Margin="2,0,0,0" />
+                    <Grid Grid.Column="2" VerticalAlignment="Center" Margin="4,0,2,0">
+                        <TextBlock Text="{Binding ProgressText}" FontSize="11" Foreground="{DynamicResource Text.Secondary}"
+                                   VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=ProjHeader}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasProgress}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=ProjHeader}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Button Style="{StaticResource IconButton}" FontFamily="Segoe MDL2 Assets" Content="&#xE710;"
+                                    ToolTip="New checklist in this project" Command="{Binding AddChecklistCommand}" />
+                            <Button x:Name="ProjectMore" Style="{StaticResource IconButton}" FontFamily="Segoe MDL2 Assets"
+                                    Content="&#xE712;" ToolTip="Project actions" Click="ProjectMore_Click">
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="New checklist" Command="{Binding AddChecklistCommand}" />
+                                        <Separator />
+                                        <MenuItem Header="Delete project" Command="{Binding DeleteCommand}" Style="{StaticResource DangerMenuItem}" />
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+                <ListBox ItemsSource="{Binding Checklists}" SelectedItem="{Binding SelectedChecklistInProject, Mode=TwoWay}"
+                         ItemTemplate="{StaticResource ChecklistRowTemplate}" Margin="16,2,0,2"
+                         Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}"
+                         beh:DragDropReorderBehavior.IsEnabled="True"
+                         beh:DragDropReorderBehavior.DropCommand="{Binding ReorderChecklistsCommand}">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="ContextMenu">
+                                <Setter.Value>
+                                    <ContextMenu>
+                                        <MenuItem Header="Duplicate" Command="{Binding DuplicateCommand}" />
+                                        <Separator />
+                                        <MenuItem Header="Delete checklist" Command="{Binding DeleteCommand}" Style="{StaticResource DangerMenuItem}" />
+                                    </ContextMenu>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- =============================================== main checklist panel -->
+        <DataTemplate x:Key="ChecklistMainTemplate" DataType="{x:Type vm:ChecklistViewModel}">
+            <Grid Margin="24,12,24,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- breadcrumb -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal">
+                    <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="  /  " Style="{StaticResource Caption}" />
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" />
+                </StackPanel>
+
+                <!-- title + status on one row -->
+                <Grid Grid.Row="1" Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ctrl:EditableLabel Text="{Binding Name, Mode=TwoWay}" FontSize="20" FontWeight="SemiBold"
+                                        Foreground="{DynamicResource Text.Primary}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock Text="{Binding ProgressDetail}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                        <TextBlock Text="  ·  " Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding UpdatedAtText}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- progress bar -->
+                <ProgressBar Grid.Row="2" Margin="0,8,0,0"
+                             Maximum="{Binding ProgressMaximum, Mode=OneWay}" Value="{Binding CompletedCount, Mode=OneWay}" />
+
+                <!-- toolbar: tabs | search | add item + more -->
+                <Grid Grid.Row="3" Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Default}"
+                            BorderThickness="1" CornerRadius="7" Padding="2" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding OpenTabLabel}"
+                                         IsChecked="{Binding IsOpenView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="open" />
+                            <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding CompletedTabLabel}"
+                                         IsChecked="{Binding IsCompletedView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="completed" />
+                            <RadioButton Style="{StaticResource Segment}" GroupName="ViewMode" Content="{Binding AllTabLabel}"
+                                         IsChecked="{Binding IsAllView, Mode=OneWay}" Command="{Binding SelectViewCommand}" CommandParameter="all" />
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Column="1" MaxWidth="320" MinWidth="180" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,12,0">
+                        <TextBox x:Name="SearchBox" Padding="10,7" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Text="Search items" IsHitTestVisible="False" Margin="11,0,11,0" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Text.Secondary}"
+                                   Visibility="{Binding SearchText, Converter={StaticResource StringToVis}, ConverterParameter=Invert}" />
+                    </Grid>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource AccentButton}" Command="{Binding AddItemCommand}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Add item" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ChecklistMore" Content="Actions" Click="ChecklistMore_Click">
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Add section" Command="{Binding AddSectionCommand}" />
+                                    <MenuItem Header="Reset checklist" Command="{Binding ResetCommand}" />
+                                    <Separator />
+                                    <MenuItem Header="Export to CSV…" Command="{Binding ExportCommand}" />
+                                    <MenuItem Header="Print…" Command="{Binding PrintCommand}" />
+                                    <Separator />
+                                    <MenuItem Header="Duplicate checklist" Command="{Binding DuplicateCommand}" />
+                                    <MenuItem Header="Delete checklist" Command="{Binding DeleteCommand}" Style="{StaticResource DangerMenuItem}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- body -->
+                <Grid Grid.Row="4" Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,8"
+                                Visibility="{Binding ShowFilterSummary, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding FilterSummary}" Style="{StaticResource Caption}" />
+                        <TextBlock Text="Reordering is disabled while searching." Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,8,0"
+                                      PreviewMouseWheel="MainScroll_PreviewMouseWheel"
+                                      Visibility="{Binding ShowSections, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl ItemsSource="{Binding Sections}" ItemTemplate="{StaticResource SectionTemplate}" />
+                        </ScrollViewer>
+
+                        <!-- empty states -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                                    Visibility="{Binding ShowEmptyChecklist, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="No items yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Add your first checklist item or import a CSV template." TextAlignment="Center"
+                                       Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                                <Button Style="{StaticResource AccentButton}" Content="Add item" Command="{Binding AddItemCommand}" Margin="0,0,8,0" />
+                                <Button Content="Import CSV"
+                                        Command="{Binding DataContext.ImportCsvCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                                    Visibility="{Binding ShowNoOpen, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="No open items" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Everything in this checklist is complete." TextAlignment="Center"
+                                       Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" />
+                            <Button Content="View Completed" Command="{Binding ViewCompletedCommand}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+                        </StackPanel>
+
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                                    Visibility="{Binding ShowNoCompleted, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="No completed items yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Checked items will appear here." TextAlignment="Center"
+                                       Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" />
+                        </StackPanel>
+
+                        <TextBlock Text="No items match your search." Style="{StaticResource Caption}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVis}}" />
+
+                        <!-- "moved to completed" toast -->
+                        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,18"
+                                Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Strong}"
+                                BorderThickness="1" CornerRadius="8" Padding="14,9"
+                                Visibility="{Binding ToastVisible, Converter={StaticResource BoolToVis}}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.22" Color="Black" />
+                            </Border.Effect>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding ToastMessage}" Foreground="{DynamicResource Text.Primary}" VerticalAlignment="Center" />
+                                <Button Style="{StaticResource LinkButton}" Content="Undo" Command="{Binding UndoCompleteCommand}" Margin="18,0,0,0" />
+                                <Button Style="{StaticResource LinkButton}" Content="View Completed" Command="{Binding ViewCompletedFromToastCommand}" Margin="14,0,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
+
+    <!-- =============================================== window layout -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- top bar -->
+        <Border Grid.Row="0" Background="{DynamicResource Surface.Card}"
+                BorderBrush="{DynamicResource Border.Default}" BorderThickness="0,0,0,1">
+            <Grid Margin="16,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="SidebarToggleButton" Style="{StaticResource IconButton}" FontFamily="Segoe MDL2 Assets"
+                            Content="&#xE700;" ToolTip="Hide sidebar" Click="SidebarToggle_Click" Margin="0,0,8,0"
+                            Visibility="{Binding HasProjects, Converter={StaticResource BoolToVis}}" />
+                    <Border Width="24" Height="24" CornerRadius="6" Background="{DynamicResource Accent}">
+                        <Path Data="M4,8.5 L7.5,12 L14,4" Stretch="Uniform" Margin="6"
+                              Stroke="{DynamicResource Text.OnAccent}" StrokeThickness="2.2"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                    </Border>
+                    <TextBlock Text="FieldCheck" FontWeight="SemiBold" FontSize="15" Margin="9,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding SaveStatusText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                           Visibility="{Binding ShowSaveStatus, Converter={StaticResource BoolToVis}}" />
+            </Grid>
+        </Border>
+
+        <!-- content -->
+        <Grid Grid.Row="1">
+
+            <!-- workspace -->
+            <Grid Visibility="{Binding HasProjects, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="SidebarColumn" Width="300" MinWidth="240" MaxWidth="500" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- sidebar -->
+                <Border x:Name="SidebarPanel" Grid.Column="0" Background="{DynamicResource Surface.Sidebar}"
+                        BorderBrush="{DynamicResource Border.Default}" BorderThickness="0,0,1,0"
+                        SizeChanged="SidebarPanel_SizeChanged">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="14,14,14,6">
+                            <Button Style="{StaticResource AccentButton}" Command="{Binding NewChecklistCommand}" HorizontalAlignment="Stretch">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="New checklist" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Content="New project" Command="{Binding NewProjectCommand}" Margin="0,0,4,0" />
+                                <Button Grid.Column="1" Content="Import CSV" Command="{Binding ImportCsvCommand}" Margin="4,0,0,0" />
+                            </Grid>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="6,4,6,4">
+                            <StackPanel>
+                                <TextBlock Text="PROJECTS" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}"
+                                           Margin="8,4,0,6" />
+                                <ItemsControl ItemsSource="{Binding Projects}" ItemTemplate="{StaticResource ProjectTemplate}" />
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <Border Grid.Row="2" BorderBrush="{DynamicResource Border.Default}" BorderThickness="0,1,0,0" Padding="14,10">
+                            <StackPanel>
+                                <Button Style="{StaticResource LinkButton}" Content="Download CSV template" Command="{Binding DownloadTemplateCommand}" />
+                                <TextBlock Text="THEME" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}" Margin="0,12,0,4" />
+                                <Border Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Default}"
+                                        BorderThickness="1" CornerRadius="7" Padding="2">
+                                    <UniformGrid Rows="1" Columns="3">
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Light"
+                                                     IsChecked="{Binding IsLightTheme, Mode=OneWay}" Command="{Binding SetLightThemeCommand}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="Dark"
+                                                     IsChecked="{Binding IsDarkTheme, Mode=OneWay}" Command="{Binding SetDarkThemeCommand}" />
+                                        <RadioButton Style="{StaticResource Segment}" GroupName="Theme" Content="System"
+                                                     IsChecked="{Binding IsSystemTheme, Mode=OneWay}" Command="{Binding SetSystemThemeCommand}" />
+                                    </UniformGrid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- resize handle -->
+                <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch" Background="Transparent" Cursor="SizeWE"
+                              ResizeBehavior="PreviousAndNext" ResizeDirection="Columns"
+                              ToolTip="Drag to resize the sidebar" />
+
+                <!-- main panel -->
+                <Grid Grid.Column="2">
+                    <ContentControl Content="{Binding SelectedChecklist}" ContentTemplate="{StaticResource ChecklistMainTemplate}"
+                                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}" />
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360"
+                                Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
+                        <TextBlock Text="No checklist selected" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Text.Primary}" />
+                        <TextBlock Text="Pick a checklist from the sidebar, or create a new one." TextAlignment="Center"
+                                   Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- welcome -->
+            <Grid Visibility="{Binding ShowWelcome, Converter={StaticResource BoolToVis}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460">
+                    <Border Width="68" Height="68" CornerRadius="17" Background="{DynamicResource Accent}" HorizontalAlignment="Center">
+                        <Path Data="M4,8.5 L7.5,12 L14,4" Stretch="Uniform" Margin="18"
+                              Stroke="{DynamicResource Text.OnAccent}" StrokeThickness="2.4"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                    </Border>
+                    <TextBlock Text="FieldCheck" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               Margin="0,20,0,0" Foreground="{DynamicResource Text.Primary}" />
+                    <TextBlock Text="Create a checklist manually or import one from CSV." HorizontalAlignment="Center"
+                               TextAlignment="Center" Margin="0,8,0,0" Foreground="{DynamicResource Text.Secondary}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,28,0,0">
+                        <Button Style="{StaticResource AccentButton}" Content="Create checklist" MinWidth="156"
+                                Padding="16,11" Margin="0,0,12,0" Command="{Binding NewChecklistCommand}" />
+                        <Button Content="Import CSV" MinWidth="156" Padding="16,11" Command="{Binding ImportCsvCommand}" />
+                    </StackPanel>
+                    <Button Style="{StaticResource LinkButton}" Content="Download CSV template"
+                            HorizontalAlignment="Center" Margin="0,20,0,0" Command="{Binding DownloadTemplateCommand}" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

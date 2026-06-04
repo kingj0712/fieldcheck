@@ -486,3 +486,8 @@ $RECYCLE.BIN/
 # FieldCheck self-contained publish output (distribute via GitHub Releases instead)
 publish/
 
+# The WPF project folder "FieldCheck.App" ends in ".app", which the generic *.app rule
+# earlier in this file would otherwise ignore — keep the project tracked.
+# (bin/ and obj/ inside it remain ignored via the rules above.)
+!src/FieldCheck.App/
+

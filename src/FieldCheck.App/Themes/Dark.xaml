@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Dark theme: near-charcoal canvas, slightly lighter surfaces, soft-white text, muted slate-blue accent. -->
+
+    <SolidColorBrush x:Key="Surface.Window">#1C1F23</SolidColorBrush>
+    <SolidColorBrush x:Key="Surface.Card">#23272C</SolidColorBrush>
+    <SolidColorBrush x:Key="Surface.Sidebar">#1F2226</SolidColorBrush>
+    <SolidColorBrush x:Key="Surface.Input">#2A2F35</SolidColorBrush>
+
+    <SolidColorBrush x:Key="Text.Primary">#E7EAED</SolidColorBrush>
+    <SolidColorBrush x:Key="Text.Secondary">#99A1AA</SolidColorBrush>
+    <SolidColorBrush x:Key="Text.OnAccent">#FFFFFF</SolidColorBrush>
+
+    <SolidColorBrush x:Key="Border.Default">#343A41</SolidColorBrush>
+    <SolidColorBrush x:Key="Border.Strong">#3D444C</SolidColorBrush>
+
+    <SolidColorBrush x:Key="Accent">#4D9BC4</SolidColorBrush>
+    <SolidColorBrush x:Key="Accent.Hover">#5BA8CF</SolidColorBrush>
+    <SolidColorBrush x:Key="Accent.Pressed">#3F88AE</SolidColorBrush>
+
+    <SolidColorBrush x:Key="State.Hover">#2B3036</SolidColorBrush>
+    <SolidColorBrush x:Key="State.Selected">#2C3A43</SolidColorBrush>
+
+    <SolidColorBrush x:Key="Danger">#D06A5E</SolidColorBrush>
+    <SolidColorBrush x:Key="Danger.Hover">#DB7B70</SolidColorBrush>
+
+    <SolidColorBrush x:Key="ProgressTrack">#313740</SolidColorBrush>
+
+</ResourceDictionary>
