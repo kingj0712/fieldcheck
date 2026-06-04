@@ -10,6 +10,13 @@ public sealed class AppSettings
 
     public string? LastOpenedChecklistId { get; set; }
 
+    /// <summary>
+    /// The project whose overview was last shown in the main pane. Mutually exclusive with
+    /// <see cref="LastOpenedChecklistId"/>: selecting a checklist clears this, and selecting a
+    /// project overview clears the checklist. Null when a checklist (or nothing) is selected.
+    /// </summary>
+    public string? LastOpenedProjectId { get; set; }
+
     /// <summary>"open" or "completed".</summary>
     public string LastSelectedTab { get; set; } = "open";
 

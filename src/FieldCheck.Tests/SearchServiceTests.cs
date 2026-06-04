@@ -57,6 +57,17 @@ public class SearchServiceTests
     }
 
     [Fact]
+    public void ProjectResult_CarriesOnlyProjectContext()
+    {
+        // A project hit has no checklist/section/item ids, so navigation routes to the Project Overview.
+        var hit = Assert.Single(SearchService.Search(Sample(), "Riverside"), x => x.Kind == SearchResultKind.Project);
+        Assert.Equal("project-001", hit.ProjectId);
+        Assert.Null(hit.ChecklistId);
+        Assert.Null(hit.Section);
+        Assert.Null(hit.ItemId);
+    }
+
+    [Fact]
     public void FindsChecklistByName()
     {
         var r = SearchService.Search(Sample(), "Graphics Review");

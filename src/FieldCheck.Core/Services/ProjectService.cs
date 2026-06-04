@@ -3,6 +3,9 @@ using FieldCheck.Core.Utilities;
 
 namespace FieldCheck.Core.Services;
 
+/// <summary>Aggregate completion stats for a project, summed across all of its checklists.</summary>
+public readonly record struct ProjectProgress(int ChecklistCount, int TotalItems, int CompletedItems, int OpenItems);
+
 /// <summary>Pure project-container rules: project CRUD/ordering and placing checklists inside projects.</summary>
 public static class ProjectService
 {
@@ -120,6 +123,14 @@ public static class ProjectService
 
     public static IEnumerable<Checklist> AllChecklists(AppState state) =>
         state.Projects.OrderBy(p => p.Order).SelectMany(p => p.Checklists.OrderBy(c => c.Order));
+
+    /// <summary>Sums item counts across every checklist in the project (for the Project Overview).</summary>
+    public static ProjectProgress GetProgress(Project project)
+    {
+        var total = project.Checklists.Sum(c => c.Items.Count);
+        var completed = project.Checklists.Sum(c => c.Items.Count(i => i.Completed));
+        return new ProjectProgress(project.Checklists.Count, total, completed, total - completed);
+    }
 
     private static string RequireText(string? value, string fieldName)
     {

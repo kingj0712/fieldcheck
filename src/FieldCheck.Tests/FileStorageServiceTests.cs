@@ -31,6 +31,7 @@ public sealed class FileStorageServiceTests : IDisposable
             {
                 Theme = ThemeMode.Dark,
                 LastOpenedChecklistId = "checklist-001",
+                LastOpenedProjectId = "project-001",
                 LastSelectedTab = "all",
                 WindowWidth = 1024,
                 WindowHeight = 768,
@@ -97,6 +98,7 @@ public sealed class FileStorageServiceTests : IDisposable
         var settings = _storage.Load().State.Settings;
         Assert.Equal(ThemeMode.Dark, settings.Theme);
         Assert.Equal("checklist-001", settings.LastOpenedChecklistId);
+        Assert.Equal("project-001", settings.LastOpenedProjectId);
         Assert.Equal("all", settings.LastSelectedTab);
         Assert.Equal(280, settings.SidebarWidth);
         Assert.True(settings.SidebarCollapsed);
@@ -200,6 +202,7 @@ public sealed class FileStorageServiceTests : IDisposable
         Assert.Equal(1, item.Order);
         Assert.Empty(item.Tags); // initialized empty by migration
         Assert.Equal("checklist-001", result.State.Settings.LastOpenedChecklistId); // settings preserved
+        Assert.Null(result.State.Settings.LastOpenedProjectId);  // new field defaults cleanly for old files
         Assert.Equal(300, result.State.Settings.SidebarWidth);  // new fields default cleanly for old files
         Assert.False(result.State.Settings.SidebarCollapsed);
     }

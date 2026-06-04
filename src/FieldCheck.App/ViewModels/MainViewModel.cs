@@ -35,9 +35,25 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
         CurrentThemeMode = _services.Theme.CurrentMode;
         _services.State.PropertyChanged += OnStateServiceChanged;
 
-        var restore = Projects.SelectMany(p => p.Checklists).FirstOrDefault(c => c.Id == State.Settings.LastOpenedChecklistId)
-                      ?? Projects.SelectMany(p => p.Checklists).FirstOrDefault();
-        SelectedChecklist = restore;
+        RestoreSelection();
+    }
+
+    /// <summary>Restores the last main-pane selection: a project overview if one was last shown,
+    /// otherwise the last checklist (falling back to the first checklist).</summary>
+    private void RestoreSelection()
+    {
+        var projectToOpen = State.Settings.LastOpenedProjectId is { } projectId
+            ? Projects.FirstOrDefault(p => p.Id == projectId)
+            : null;
+        if (projectToOpen is not null)
+        {
+            SelectProject(projectToOpen);
+            return;
+        }
+
+        SelectedChecklist =
+            Projects.SelectMany(p => p.Checklists).FirstOrDefault(c => c.Id == State.Settings.LastOpenedChecklistId)
+            ?? Projects.SelectMany(p => p.Checklists).FirstOrDefault();
     }
 
     public ObservableCollection<ProjectViewModel> Projects { get; }
@@ -62,7 +78,9 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
         get => _selectedChecklist;
         set
         {
-            if (ReferenceEquals(_selectedChecklist, value))
+            // Re-selecting the same checklist is a no-op only when no project overview is showing;
+            // otherwise we still need to switch the main pane away from the overview.
+            if (ReferenceEquals(_selectedChecklist, value) && _selectedProject is null)
                 return;
             if (_selectedChecklist is not null)
                 _selectedChecklist.IsSelected = false;
@@ -73,6 +91,8 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
             {
                 value.IsSelected = true;
                 value.InitViewMode(State.Settings.LastSelectedTab);
+                ClearProjectSelection();              // opening a checklist leaves the project overview
+                State.Settings.LastOpenedProjectId = null;
             }
             State.Settings.LastOpenedChecklistId = value?.Id;
 
@@ -80,12 +100,66 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
                 project.SyncSelection(value);
 
             OnPropertyChanged();
-            OnPropertyChanged(nameof(HasSelection));
+            RaiseSelectionFlags();
             _services.Save();
         }
     }
 
-    public bool HasSelection => SelectedChecklist is not null;
+    private ProjectViewModel? _selectedProject;
+    /// <summary>The project whose overview is shown in the main pane, or null. Set via <see cref="SelectProject"/>.</summary>
+    public ProjectViewModel? SelectedProject => _selectedProject;
+
+    /// <summary>Selects a project and shows its overview in the main pane, clearing any checklist
+    /// selection. Read-only with respect to data: never reorders or changes completion.</summary>
+    public void SelectProject(ProjectViewModel project)
+    {
+        if (project is null)
+            return;
+
+        if (_selectedChecklist is not null)
+        {
+            _selectedChecklist.IsSelected = false;
+            _selectedChecklist = null;
+            OnPropertyChanged(nameof(SelectedChecklist));
+        }
+
+        foreach (var p in Projects)
+        {
+            p.IsSelected = ReferenceEquals(p, project);
+            p.SyncSelection(null);                    // clear the sidebar checklist highlight
+        }
+
+        _selectedProject = project;
+        project.IsExpanded = true;
+        State.Settings.LastOpenedChecklistId = null;
+        State.Settings.LastOpenedProjectId = project.Id;
+
+        OnPropertyChanged(nameof(SelectedProject));
+        RaiseSelectionFlags();
+        _services.Save();
+    }
+
+    private void ClearProjectSelection()
+    {
+        if (_selectedProject is null)
+            return;
+        _selectedProject.IsSelected = false;
+        _selectedProject = null;
+        OnPropertyChanged(nameof(SelectedProject));
+    }
+
+    private void RaiseSelectionFlags()
+    {
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(ShowChecklistView));
+        OnPropertyChanged(nameof(ShowProjectOverview));
+        OnPropertyChanged(nameof(ShowNothingSelected));
+    }
+
+    public bool HasSelection => SelectedChecklist is not null || SelectedProject is not null;
+    public bool ShowChecklistView => SelectedChecklist is not null;
+    public bool ShowProjectOverview => SelectedProject is not null && SelectedChecklist is null;
+    public bool ShowNothingSelected => SelectedChecklist is null && SelectedProject is null;
 
     // ---------------------------------------------------------------- theme
 
@@ -143,6 +217,8 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
 
     private ProjectViewModel GetTargetProject()
     {
+        if (SelectedProject is not null)
+            return SelectedProject;
         if (SelectedChecklist is not null)
             return SelectedChecklist.Project;
         if (Projects.Count > 0)
@@ -222,8 +298,11 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
 
         var target = Projects.SelectMany(p => p.Checklists).FirstOrDefault(c => c.Id == selectChecklistId)
                      ?? Projects.SelectMany(p => p.Checklists).FirstOrDefault();
-        _selectedChecklist = null; // force the setter to re-apply against the new view models
+        // The old view models are gone; reset both selections so the setter re-applies cleanly.
+        _selectedProject = null;
+        _selectedChecklist = null;
         SelectedChecklist = target;
+        RaiseSelectionFlags();
     }
 
     // ---------------------------------------------------------------- global search
@@ -244,11 +323,21 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
             return;
         project.IsExpanded = true;
 
+        // A project hit opens the Project Overview rather than guessing at a checklist.
+        if (result.Kind == SearchResultKind.Project)
+        {
+            SelectProject(project);
+            return;
+        }
+
         var checklist = result.ChecklistId is null
             ? project.Checklists.FirstOrDefault()
             : project.Checklists.FirstOrDefault(c => c.Id == result.ChecklistId);
         if (checklist is null)
+        {
+            SelectProject(project);   // checklist no longer exists — fall back to the overview
             return;
+        }
 
         SelectedChecklist = checklist;
 
@@ -273,11 +362,22 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
                 $"Delete “{project.Name}” and all of its checklists? This cannot be undone.", "Delete"))
             return;
 
-        var hadSelection = SelectedChecklist is not null && project.Checklists.Contains(SelectedChecklist);
+        var hadChecklistSelection = SelectedChecklist is not null && project.Checklists.Contains(SelectedChecklist);
+        var hadOverviewSelection = ReferenceEquals(SelectedProject, project);
+
         ProjectService.DeleteProject(State, project.Id);
         Projects.Remove(project);
-        if (hadSelection)
+
+        if (hadOverviewSelection)
+        {
+            _selectedProject = null;
+            State.Settings.LastOpenedProjectId = null;
+            OnPropertyChanged(nameof(SelectedProject));
+            RaiseSelectionFlags();
+        }
+        if (hadChecklistSelection)
             SelectedChecklist = Projects.SelectMany(p => p.Checklists).FirstOrDefault();
+
         RefreshWorkspaceState();
         _services.Save(immediate: true);
     }

@@ -118,6 +118,15 @@ public partial class MainWindow : Window
 
     private void ChecklistMore_Click(object sender, RoutedEventArgs e) => OpenMenu(sender);
 
+    // Clicking a project row (anywhere the chevron/name-editor/action buttons didn't handle) selects
+    // the project and shows its overview. Those child controls mark their own clicks handled, so this
+    // only fires for "empty" header clicks and single-clicks on the name.
+    private void ProjectHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectViewModel project })
+            _viewModel.SelectProject(project);
+    }
+
     private static void OpenMenu(object sender)
     {
         if (sender is Button { ContextMenu: { } menu } button)

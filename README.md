@@ -48,8 +48,13 @@ Project
 
 ## Features
 
-- **Projects**: create, rename (double-click the name), delete (with confirmation), expand/collapse;
-  create checklists inside a project.
+- **Projects**: create, **select** (click the project row to open its Project Overview), rename
+  (double-click the name inline, the **Rename** button on the overview, or the row's context menu),
+  delete (with confirmation), expand/collapse; create checklists inside a project.
+- **Project Overview**: clicking a project opens a summary pane in the main area — overall progress
+  (e.g. "12 of 42 items complete") with a bar, counts of checklists / open items / completed items,
+  the last-updated time, and a list of child checklists (each with its own progress) you can click to
+  open. Quick actions: **New checklist**, **Rename project**, **Delete project**.
 - **Checklists**: create, rename inline, duplicate, delete (with confirmation), reset; drag-and-drop
   reorder within a project; per-checklist progress badge (e.g. `8/10`).
 - **Sections**: items are grouped under section headers with counts; grouping works in the Open,
@@ -209,9 +214,9 @@ FieldCheck has two distinct search tools — they don't overlap:
   as you type.
   - **Keyboard:** type to filter, **↑/↓** to move through results, **Enter** to open the highlighted
     result, **Esc** to close.
-  - **Navigating to a result** expands the project, selects the checklist, and switches to the right
-    tab (Open for incomplete items, Completed for completed ones), then briefly highlights and scrolls
-    to the matched item.
+  - **Navigating to a result** expands the project and either opens the **Project Overview** (for a
+    project result) or selects the checklist and switches to the right tab (Open for incomplete items,
+    Completed for completed ones), then briefly highlights and scrolls to the matched item.
   - Search and navigation are **read-only** — they never change item order, checklist order, or
     completion state.
 

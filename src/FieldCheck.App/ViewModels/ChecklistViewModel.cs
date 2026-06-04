@@ -44,6 +44,7 @@ public sealed class ChecklistViewModel : BindableBase
         PrintCommand = new RelayCommand(Print, () => TotalCount > 0);
         DuplicateCommand = new RelayCommand(() => _host.RequestDuplicateChecklist(this));
         DeleteCommand = new RelayCommand(() => _host.RequestDeleteChecklist(this));
+        OpenCommand = new RelayCommand(() => _host.OnChecklistSelected(this));
         ViewCompletedCommand = new RelayCommand(() => ViewModeIndex = 1);
         SelectViewCommand = new RelayCommand<string>(v => ViewModeIndex = v switch { "completed" => 1, "all" => 2, _ => 0 });
         UndoCompleteCommand = new RelayCommand(UndoComplete);
@@ -70,6 +71,7 @@ public sealed class ChecklistViewModel : BindableBase
     public RelayCommand PrintCommand { get; }
     public ICommand DuplicateCommand { get; }
     public ICommand DeleteCommand { get; }
+    public ICommand OpenCommand { get; }
     public ICommand ViewCompletedCommand { get; }
     public ICommand SelectViewCommand { get; }
     public ICommand UndoCompleteCommand { get; }

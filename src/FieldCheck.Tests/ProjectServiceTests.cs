@@ -58,6 +58,48 @@ public class ProjectServiceTests
     }
 
     [Fact]
+    public void RenameProject_TrimsWhitespace()
+    {
+        var state = new AppState();
+        var p = AddProject(state, "A");
+        ProjectService.RenameProject(p, "   Renamed Job   ", _clock);
+        Assert.Equal("Renamed Job", p.Name);
+    }
+
+    [Fact]
+    public void GetProgress_AggregatesAcrossChecklists()
+    {
+        var project = new Project
+        {
+            Id = "p1", Name = "Job",
+            Checklists =
+            {
+                new Checklist { Id = "c1", Name = "A", Items = { Item(true), Item(false), Item(false) } },
+                new Checklist { Id = "c2", Name = "B", Items = { Item(true), Item(true) } }
+            }
+        };
+
+        var progress = ProjectService.GetProgress(project);
+        Assert.Equal(2, progress.ChecklistCount);
+        Assert.Equal(5, progress.TotalItems);
+        Assert.Equal(3, progress.CompletedItems);
+        Assert.Equal(2, progress.OpenItems);
+    }
+
+    [Fact]
+    public void GetProgress_EmptyProject_IsAllZero()
+    {
+        var progress = ProjectService.GetProgress(new Project { Id = "p", Name = "Empty" });
+        Assert.Equal(0, progress.ChecklistCount);
+        Assert.Equal(0, progress.TotalItems);
+        Assert.Equal(0, progress.CompletedItems);
+        Assert.Equal(0, progress.OpenItems);
+    }
+
+    private static ChecklistItem Item(bool completed) =>
+        new() { Id = "i", Text = "t", Section = "General", Completed = completed };
+
+    [Fact]
     public void DeleteProject_RemovesAndRenormalizes()
     {
         var state = new AppState();
