@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Windows.Input;
+using System.Windows.Threading;
 using FieldCheck.App.Services;
 using FieldCheck.Core.Models;
 using FieldCheck.Core.Services;
@@ -61,6 +62,34 @@ public sealed class ItemViewModel : BindableBase
     public bool ShowCompletedAt => Model.Completed && Model.CompletedAt is not null;
     public string CompletedAtText =>
         Model.CompletedAt is { } when ? $"Completed {when:MMM d, yyyy} at {when:h:mm tt}" : string.Empty;
+
+    // ---------------------------------------------------------------- transient highlight (search navigation)
+
+    private DispatcherTimer? _highlightTimer;
+    private bool _isHighlighted;
+    public bool IsHighlighted
+    {
+        get => _isHighlighted;
+        private set => SetProperty(ref _isHighlighted, value);
+    }
+
+    /// <summary>Briefly highlights the row and scrolls it into view (used when global search navigates here).</summary>
+    public void Highlight()
+    {
+        IsHighlighted = false; // reset so re-navigating to the same item re-triggers the flash/scroll
+        IsHighlighted = true;
+        _highlightTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+        _highlightTimer.Tick -= OnHighlightElapsed;
+        _highlightTimer.Tick += OnHighlightElapsed;
+        _highlightTimer.Stop();
+        _highlightTimer.Start();
+    }
+
+    private void OnHighlightElapsed(object? sender, EventArgs e)
+    {
+        _highlightTimer?.Stop();
+        IsHighlighted = false;
+    }
 
     private void Edit()
     {

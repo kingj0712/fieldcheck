@@ -59,9 +59,10 @@ Project
   pills; whitespace trimmed, duplicates removed.
 - **Open / Completed / All tabs**: completing an item moves it to Completed; unchecking restores it
   to its original position in Open (order is preserved, never lost). All shows everything in order.
-- **Search** (top-right of the checklist toolbar) matches item text, notes, section, and tags in the
-  current view, with a result count. Reordering is disabled while searching so order can't be
-  corrupted.
+- **Filter items** (checklist toolbar) narrows the *current* checklist's visible items by text, notes,
+  section, and tags, with a result count. Reordering is disabled while filtering so order can't be corrupted.
+- **Search all** (header button or **Ctrl+K**) opens a command palette that searches across *every*
+  project, checklist, section, and item; picking a result jumps you straight there.
 - **Autosave** after every meaningful change (debounced while typing), with a subtle "Saved 10:56 AM"
   status, safe/atomic writes, and an automatic backup.
 - **Restore previous state** on reopen — last checklist, last tab, theme, expand/collapse, and window
@@ -191,6 +192,31 @@ Exporting a checklist writes:
 - **Project & checklist names** are edited in place: double-click (or the pencil) to edit. **Enter**
   commits, **Esc** reverts, **Tab / clicking away** commits. Names can't be blank.
 - **Items** (text, section, tags, notes) are edited in a small dialog. Notes are multi-line.
+
+---
+
+## Search & filter
+
+FieldCheck has two distinct search tools — they don't overlap:
+
+- **Filter items** — the box in the selected checklist's toolbar. It only narrows the **current
+  checklist**, hiding items that don't match (by text, notes, section, or tags) in the current
+  Open/Completed/All view. While the filter is active, drag-reordering is disabled so item order
+  can't be corrupted. Clearing the box restores the full list.
+- **Search all** — the **Search all** button in the top header, or **Ctrl+K** anywhere. This opens a
+  command-palette dialog that searches **across every project, checklist, section, and item** (names,
+  item text, notes, and tags). It is case-insensitive and matches partial terms, and results update
+  as you type.
+  - **Keyboard:** type to filter, **↑/↓** to move through results, **Enter** to open the highlighted
+    result, **Esc** to close.
+  - **Navigating to a result** expands the project, selects the checklist, and switches to the right
+    tab (Open for incomplete items, Completed for completed ones), then briefly highlights and scrolls
+    to the matched item.
+  - Search and navigation are **read-only** — they never change item order, checklist order, or
+    completion state.
+
+> **Limitation:** scrolling to and highlighting the exact item is **best-effort** — it works in the
+> normal case, but in unusual layouts the highlight may fade before the row is fully scrolled into view.
 
 ---
 

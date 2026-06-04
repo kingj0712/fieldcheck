@@ -27,6 +27,7 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
         NewChecklistCommand = new RelayCommand(() => CreateChecklistInProject(null));
         ImportCsvCommand = new RelayCommand(ImportCsv);
         DownloadTemplateCommand = new RelayCommand(DownloadTemplate);
+        OpenGlobalSearchCommand = new RelayCommand(OpenGlobalSearch);
         SetLightThemeCommand = new RelayCommand(() => SetTheme(ThemeMode.Light));
         SetDarkThemeCommand = new RelayCommand(() => SetTheme(ThemeMode.Dark));
         SetSystemThemeCommand = new RelayCommand(() => SetTheme(ThemeMode.System));
@@ -45,6 +46,7 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
     public ICommand NewChecklistCommand { get; }
     public ICommand ImportCsvCommand { get; }
     public ICommand DownloadTemplateCommand { get; }
+    public ICommand OpenGlobalSearchCommand { get; }
     public ICommand SetLightThemeCommand { get; }
     public ICommand SetDarkThemeCommand { get; }
     public ICommand SetSystemThemeCommand { get; }
@@ -222,6 +224,43 @@ public sealed class MainViewModel : BindableBase, IWorkspaceHost
                      ?? Projects.SelectMany(p => p.Checklists).FirstOrDefault();
         _selectedChecklist = null; // force the setter to re-apply against the new view models
         SelectedChecklist = target;
+    }
+
+    // ---------------------------------------------------------------- global search
+
+    private void OpenGlobalSearch()
+    {
+        var result = _services.Dialogs.ShowGlobalSearch(State);
+        if (result is not null)
+            NavigateTo(result);
+    }
+
+    /// <summary>Navigates to a global-search result: expand its project, select the checklist, route the
+    /// tab, and (for items) reveal/highlight. Never mutates order or completion state.</summary>
+    private void NavigateTo(SearchResult result)
+    {
+        var project = Projects.FirstOrDefault(p => p.Id == result.ProjectId);
+        if (project is null)
+            return;
+        project.IsExpanded = true;
+
+        var checklist = result.ChecklistId is null
+            ? project.Checklists.FirstOrDefault()
+            : project.Checklists.FirstOrDefault(c => c.Id == result.ChecklistId);
+        if (checklist is null)
+            return;
+
+        SelectedChecklist = checklist;
+
+        switch (result.Kind)
+        {
+            case SearchResultKind.Item when result.ItemId is not null:
+                checklist.RevealItem(result.ItemId, result.ItemCompleted);
+                break;
+            case SearchResultKind.Section:
+                checklist.RevealSection();
+                break;
+        }
     }
 
     // ---------------------------------------------------------------- IWorkspaceHost
