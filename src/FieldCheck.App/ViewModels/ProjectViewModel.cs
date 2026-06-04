@@ -24,8 +24,16 @@ public sealed class ProjectViewModel : BindableBase
         foreach (var checklist in model.Checklists.OrderBy(c => c.Order))
             Checklists.Add(new ChecklistViewModel(checklist, this, services, host));
 
+        // Keep the overview's checklist list and aggregate counts current as checklists come and go.
+        Checklists.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasChecklists));
+            RefreshProgress();
+        };
+
         AddChecklistCommand = new RelayCommand(() => _host.RequestNewChecklist(this));
         DeleteCommand = new RelayCommand(() => _host.RequestDeleteProject(this));
+        RenameCommand = new RelayCommand(Rename);
         ExportReportCommand = new RelayCommand(ExportReport);
         ToggleExpandCommand = new RelayCommand(() => IsExpanded = !IsExpanded);
         ReorderChecklistsCommand = new RelayCommand<ReorderRequest>(ReorderChecklists);
@@ -38,9 +46,26 @@ public sealed class ProjectViewModel : BindableBase
 
     public ICommand AddChecklistCommand { get; }
     public ICommand DeleteCommand { get; }
+    public ICommand RenameCommand { get; }
     public ICommand ExportReportCommand { get; }
     public ICommand ToggleExpandCommand { get; }
     public ICommand ReorderChecklistsCommand { get; }
+
+    /// <summary>True when this project's overview is the active selection in the main pane.</summary>
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
+
+    /// <summary>Opens a themed prompt to rename the project (overview button + context menu).</summary>
+    private void Rename()
+    {
+        var name = _services.Dialogs.PromptText("Rename project", "Project name", Model.Name, "Rename");
+        if (!string.IsNullOrWhiteSpace(name))
+            Name = name; // routed through the Name setter: trims, timestamps, refreshes breadcrumbs, autosaves
+    }
 
     private void ExportReport()
     {
@@ -74,6 +99,7 @@ public sealed class ProjectViewModel : BindableBase
                 return;
             ProjectService.RenameProject(Model, trimmed, _services.Clock);
             OnPropertyChanged();
+            OnPropertyChanged(nameof(UpdatedAtText));
             _host.NotifyProjectRenamed(this);
             _services.Save(immediate: true);
         }
@@ -87,18 +113,53 @@ public sealed class ProjectViewModel : BindableBase
             var total = Model.Checklists.Sum(c => c.Items.Count);
             if (total == 0)
                 return string.Empty;
-            var done = Model.Checklists.Sum(c => c.Items.Count(i => i.Completed));
+            var done = Model.Checklists.Sum(c => c.Items.Count(i => i.Status == ItemStatus.Complete));
             return $"{done}/{total}";
         }
     }
 
     public bool HasProgress => Model.Checklists.Any(c => c.Items.Count > 0);
 
-    /// <summary>Called by child checklists when their items change so the sidebar badge stays current.</summary>
+    // ---------------------------------------------------------------- project overview aggregates
+
+    public bool HasChecklists => Checklists.Count > 0;
+    public int ChecklistCount => Model.Checklists.Count;
+    public int TotalItems => ProjectService.GetProgress(Model).TotalItems;
+    public int OpenItems => ProjectService.GetProgress(Model).OpenItems;
+    public int IssueItems => ProjectService.GetProgress(Model).IssueItems;
+    public int CompletedItems => ProjectService.GetProgress(Model).CompletedItems;
+    public int NaItems => ProjectService.GetProgress(Model).NotApplicableItems;
+
+    /// <summary>ProgressBar maximum (never zero so an empty project shows an empty—not full—bar).</summary>
+    public int ProgressMaximum => TotalItems == 0 ? 1 : TotalItems;
+
+    /// <summary>e.g. "12 of 42 items complete", or a friendly note when the project has no items yet.</summary>
+    public string ProgressSummary
+    {
+        get
+        {
+            var p = ProjectService.GetProgress(Model);
+            return p.TotalItems == 0 ? "No items yet" : $"{p.CompletedItems} of {p.TotalItems} items complete";
+        }
+    }
+
+    public string UpdatedAtText => $"Updated {Model.UpdatedAt:MMM d, h:mm tt}";
+
+    /// <summary>Called by child checklists when their items change so the sidebar badge and the
+    /// project overview aggregates stay current.</summary>
     public void RefreshProgress()
     {
         OnPropertyChanged(nameof(ProgressText));
         OnPropertyChanged(nameof(HasProgress));
+        OnPropertyChanged(nameof(ChecklistCount));
+        OnPropertyChanged(nameof(TotalItems));
+        OnPropertyChanged(nameof(OpenItems));
+        OnPropertyChanged(nameof(IssueItems));
+        OnPropertyChanged(nameof(CompletedItems));
+        OnPropertyChanged(nameof(NaItems));
+        OnPropertyChanged(nameof(ProgressMaximum));
+        OnPropertyChanged(nameof(ProgressSummary));
+        OnPropertyChanged(nameof(UpdatedAtText));
     }
 
     public bool IsExpanded

@@ -121,6 +121,14 @@ public partial class MainWindow : Window
     // The compact status pill opens its own menu (Open/Complete/Issue/N/A) on left-click.
     private void StatusButton_Click(object sender, RoutedEventArgs e) => OpenMenu(sender);
 
+    // Clicking a project row (where the chevron / name editor / action buttons didn't handle the
+    // click) selects the project and shows its overview. Those children mark their own clicks handled.
+    private void ProjectHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ViewModels.ProjectViewModel project })
+            _viewModel.SelectProject(project);
+    }
+
     private static void OpenMenu(object sender)
     {
         if (sender is Button { ContextMenu: { } menu } button)

@@ -48,8 +48,12 @@ Project
 
 ## Features
 
-- **Projects**: create, rename (double-click the name), delete (with confirmation), expand/collapse;
-  create checklists inside a project.
+- **Projects**: create, **select** (click a project row to open its Project Overview), rename (inline
+  double-click, the overview's Rename button, or the row menu), delete (with confirmation),
+  expand/collapse; create checklists inside a project.
+- **Project Overview**: clicking a project opens a summary pane — overall progress with a bar and
+  **Open / Issues / Complete / N/A** counts, the last-updated time, and a list of child checklists you
+  can open. Actions: New checklist, Rename, Export project report, Delete.
 - **Checklists**: create, rename inline, **duplicate with find/replace** (reuse AHU-1 → AHU-2),
   delete (with confirmation), reset; drag-and-drop reorder within a project; per-checklist progress badge.
 - **Item statuses**: every item is **Open**, **Complete**, **Issue**, or **N/A**, set from a compact,
@@ -225,8 +229,8 @@ FieldCheck has two distinct search tools — they don't overlap:
   as you type.
   - **Keyboard:** type to filter, **↑/↓** to move through results, **Enter** to open the highlighted
     result, **Esc** to close.
-  - **Navigating to a result** expands the project, selects the checklist, and switches to the right
-    tab (Open for incomplete items, Completed for completed ones), then briefly highlights and scrolls
+  - **Navigating to a result** expands the project and either opens the **Project Overview** (project
+    result) or selects the checklist and switches to the matching status tab, then briefly highlights and scrolls
     to the matched item.
   - Search and navigation are **read-only** — they never change item order, checklist order, or
     completion state.
@@ -257,8 +261,6 @@ FieldCheck has two distinct search tools — they don't overlap:
 - **Section reordering** is not implemented; sections appear in the order their first item appears.
 - Items are edited via a dialog rather than fully inline (the issue note, however, edits inline).
 - Print layout is intentionally plain/functional.
-- A dedicated **project overview** pane is not part of this build, so project-level Markdown export
-  lives on the project's sidebar menu (**Export project report…**) rather than a project page.
 - The workspace export writes into a timestamped folder; re-exporting in the same minute prompts
   before overwriting.
 - Single user, single machine by design. Running two copies at once is unsupported (they would

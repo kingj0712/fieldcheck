@@ -137,4 +137,29 @@ public class ProjectServiceTests
         Assert.Same(c, found.Value.Checklist);
         Assert.Null(ProjectService.FindChecklist(state, "missing"));
     }
+
+    [Fact]
+    public void GetProgress_CountsByStatusAcrossChecklists()
+    {
+        var project = new Project
+        {
+            Id = "p1", Name = "Job",
+            Checklists =
+            {
+                new Checklist { Id = "c1", Name = "A", Items = { Item(ItemStatus.Open), Item(ItemStatus.Complete), Item(ItemStatus.Issue) } },
+                new Checklist { Id = "c2", Name = "B", Items = { Item(ItemStatus.NotApplicable), Item(ItemStatus.Complete) } }
+            }
+        };
+
+        var progress = ProjectService.GetProgress(project);
+        Assert.Equal(2, progress.ChecklistCount);
+        Assert.Equal(5, progress.TotalItems);
+        Assert.Equal(2, progress.CompletedItems);
+        Assert.Equal(1, progress.OpenItems);
+        Assert.Equal(1, progress.IssueItems);
+        Assert.Equal(1, progress.NotApplicableItems);
+    }
+
+    private static ChecklistItem Item(ItemStatus status) =>
+        new() { Id = "i", Text = "t", Section = "General", Status = status };
 }

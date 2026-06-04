@@ -24,22 +24,32 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Pill" CornerRadius="4" Padding="8,2" MinWidth="64"
-                                Background="{DynamicResource Status.Open.Bg}">
-                            <TextBlock x:Name="Lbl" Text="{Binding StatusLabel}" FontSize="11" FontWeight="SemiBold"
-                                       HorizontalAlignment="Center" Foreground="{DynamicResource Status.Open.Fg}" />
+                        <Border x:Name="Pill" CornerRadius="4" Padding="8,3" MinWidth="68" BorderThickness="1"
+                                Background="{DynamicResource Status.Open.Bg}" BorderBrush="{DynamicResource Status.Open.Fg}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Ellipse x:Name="Dot" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                                         Fill="{DynamicResource Status.Open.Fg}" />
+                                <TextBlock x:Name="Lbl" Text="{Binding StatusLabel}" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource Status.Open.Fg}" />
+                            </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding IsComplete}" Value="True">
                                 <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Status.Complete.Bg}" />
+                                <Setter TargetName="Pill" Property="BorderBrush" Value="{DynamicResource Status.Complete.Fg}" />
+                                <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Status.Complete.Fg}" />
                                 <Setter TargetName="Lbl" Property="Foreground" Value="{DynamicResource Status.Complete.Fg}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding IsIssue}" Value="True">
                                 <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Status.Issue.Bg}" />
+                                <Setter TargetName="Pill" Property="BorderBrush" Value="{DynamicResource Status.Issue.Fg}" />
+                                <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Status.Issue.Fg}" />
                                 <Setter TargetName="Lbl" Property="Foreground" Value="{DynamicResource Status.Issue.Fg}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding IsNotApplicable}" Value="True">
                                 <Setter TargetName="Pill" Property="Background" Value="{DynamicResource Status.Na.Bg}" />
+                                <Setter TargetName="Pill" Property="BorderBrush" Value="{DynamicResource Status.Na.Fg}" />
+                                <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Status.Na.Fg}" />
                                 <Setter TargetName="Lbl" Property="Foreground" Value="{DynamicResource Status.Na.Fg}" />
                             </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -215,7 +225,22 @@
         <!-- =============================================== sidebar project group -->
         <DataTemplate x:Key="ProjectTemplate" DataType="{x:Type vm:ProjectViewModel}">
             <StackPanel Margin="0,3,0,10">
-                <Grid x:Name="ProjHeader" Background="Transparent">
+                <Border x:Name="ProjHeader" CornerRadius="6" Cursor="Hand"
+                        MouseLeftButtonUp="ProjectHeader_MouseLeftButtonUp" ToolTip="Open project overview">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource State.Hover}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource State.Selected}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -271,6 +296,7 @@
                                     Content="&#xE712;" ToolTip="Project actions" Click="ProjectMore_Click">
                                 <Button.ContextMenu>
                                     <ContextMenu>
+                                        <MenuItem Header="Rename project" Command="{Binding RenameCommand}" />
                                         <MenuItem Header="New checklist" Command="{Binding AddChecklistCommand}" />
                                         <MenuItem Header="Export project report…" Command="{Binding ExportReportCommand}" />
                                         <Separator />
@@ -280,7 +306,8 @@
                             </Button>
                         </StackPanel>
                     </Grid>
-                </Grid>
+                    </Grid>
+                </Border>
                 <ListBox ItemsSource="{Binding Checklists}" SelectedItem="{Binding SelectedChecklistInProject, Mode=TwoWay}"
                          ItemTemplate="{StaticResource ChecklistRowTemplate}" Margin="16,2,0,2"
                          Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}"
@@ -490,6 +517,180 @@
                 </Grid>
             </Grid>
         </DataTemplate>
+
+        <!-- =============================================== overview checklist card (clickable) -->
+        <Style x:Key="OverviewChecklistCard" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource Surface.Card}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Border.Default}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CardBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CardBorder" Property="Background" Value="{DynamicResource State.Hover}" />
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="{DynamicResource Border.Strong}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- =============================================== main project overview panel -->
+        <DataTemplate x:Key="ProjectOverviewTemplate" DataType="{x:Type vm:ProjectViewModel}">
+            <Grid Margin="24,12,24,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="PROJECT" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text.Secondary}" />
+
+                <!-- title + actions -->
+                <Grid Grid.Row="1" Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ctrl:EditableLabel Text="{Binding Name, Mode=TwoWay}" FontSize="22" FontWeight="SemiBold"
+                                        Foreground="{DynamicResource Text.Primary}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Button Style="{StaticResource AccentButton}" Height="32" Command="{Binding AddChecklistCommand}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="12" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="New checklist" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Height="32" Content="Rename" Command="{Binding RenameCommand}" Margin="0,0,8,0" />
+                        <Button x:Name="ProjectOverviewMore" Height="32" Content="Actions" Click="ProjectMore_Click">
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Rename project" Command="{Binding RenameCommand}" />
+                                    <MenuItem Header="New checklist" Command="{Binding AddChecklistCommand}" />
+                                    <MenuItem Header="Export project report…" Command="{Binding ExportReportCommand}" />
+                                    <Separator />
+                                    <MenuItem Header="Delete project" Command="{Binding DeleteCommand}" Style="{StaticResource DangerMenuItem}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Grid.Row="2" Text="{Binding UpdatedAtText}" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+
+                <!-- overall progress -->
+                <StackPanel Grid.Row="3" Margin="0,16,0,0">
+                    <TextBlock Text="{Binding ProgressSummary}" FontSize="13" Foreground="{DynamicResource Text.Primary}" />
+                    <ProgressBar Margin="0,8,0,0" Maximum="{Binding ProgressMaximum, Mode=OneWay}" Value="{Binding CompletedItems, Mode=OneWay}" />
+                </StackPanel>
+
+                <!-- status stat cards -->
+                <ItemsControl Grid.Row="4" Margin="0,16,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <Border Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Default}" BorderThickness="1"
+                            CornerRadius="8" Padding="16,10" MinWidth="104" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ChecklistCount}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Checklists" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Default}" BorderThickness="1"
+                            CornerRadius="8" Padding="16,10" MinWidth="104" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="{Binding OpenItems}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource Text.Primary}" />
+                            <TextBlock Text="Open" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource Status.Issue.Bg}" BorderBrush="{DynamicResource Status.Issue.Fg}" BorderThickness="1"
+                            CornerRadius="8" Padding="16,10" MinWidth="104" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="{Binding IssueItems}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource Status.Issue.Fg}" />
+                            <TextBlock Text="Issues" FontSize="12" Foreground="{DynamicResource Status.Issue.Fg}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource Status.Complete.Bg}" BorderBrush="{DynamicResource Status.Complete.Fg}" BorderThickness="1"
+                            CornerRadius="8" Padding="16,10" MinWidth="104" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="{Binding CompletedItems}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource Status.Complete.Fg}" />
+                            <TextBlock Text="Complete" FontSize="12" Foreground="{DynamicResource Status.Complete.Fg}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource Surface.Card}" BorderBrush="{DynamicResource Border.Default}" BorderThickness="1"
+                            CornerRadius="8" Padding="16,10" MinWidth="104" Margin="0,0,10,10">
+                        <StackPanel>
+                            <TextBlock Text="{Binding NaItems}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource Text.Secondary}" />
+                            <TextBlock Text="N/A" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                </ItemsControl>
+
+                <TextBlock Grid.Row="5" Text="CHECKLISTS" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" />
+
+                <!-- child checklists / empty state -->
+                <Grid Grid.Row="6" Margin="0,10,0,0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,8,0"
+                                  PreviewMouseWheel="MainScroll_PreviewMouseWheel"
+                                  Visibility="{Binding HasChecklists, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl ItemsSource="{Binding Checklists}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:ChecklistViewModel}">
+                                    <Button Style="{StaticResource OverviewChecklistCard}" Command="{Binding OpenCommand}"
+                                            Margin="0,0,0,8" ToolTip="Open this checklist">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Text.Primary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ProgressBadge}" FontSize="12"
+                                                       Foreground="{DynamicResource Text.Secondary}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                            <ProgressBar Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Height="5" Margin="0,9,0,0"
+                                                         Maximum="{Binding ProgressMaximum, Mode=OneWay}" Value="{Binding CompletedCount, Mode=OneWay}" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380"
+                                Visibility="{Binding HasChecklists, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
+                        <TextBlock Text="No checklists yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Text.Primary}" />
+                        <TextBlock Text="Create a checklist or import one into this project." TextAlignment="Center"
+                                   Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                            <Button Style="{StaticResource AccentButton}" Content="New checklist" Command="{Binding AddChecklistCommand}" Margin="0,0,8,0" />
+                            <Button Content="Import CSV"
+                                    Command="{Binding DataContext.ImportCsvCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <!-- =============================================== window layout -->
@@ -612,15 +813,17 @@
                               ResizeBehavior="PreviousAndNext" ResizeDirection="Columns"
                               ToolTip="Drag to resize the sidebar" />
 
-                <!-- main panel -->
+                <!-- main panel: checklist view, project overview, or empty hint -->
                 <Grid Grid.Column="2">
                     <ContentControl Content="{Binding SelectedChecklist}" ContentTemplate="{StaticResource ChecklistMainTemplate}"
-                                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}" />
+                                    Visibility="{Binding ShowChecklistView, Converter={StaticResource BoolToVis}}" />
+                    <ContentControl Content="{Binding SelectedProject}" ContentTemplate="{StaticResource ProjectOverviewTemplate}"
+                                    Visibility="{Binding ShowProjectOverview, Converter={StaticResource BoolToVis}}" />
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360"
-                                Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
-                        <TextBlock Text="No checklist selected" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                Visibility="{Binding ShowNothingSelected, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Nothing selected" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource Text.Primary}" />
-                        <TextBlock Text="Pick a checklist from the sidebar, or create a new one." TextAlignment="Center"
+                        <TextBlock Text="Pick a project or checklist from the sidebar, or create a new one." TextAlignment="Center"
                                    Foreground="{DynamicResource Text.Secondary}" Margin="0,8,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </Grid>
